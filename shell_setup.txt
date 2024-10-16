@@ -1,0 +1,32 @@
+fish - website or chsh
+
+brew - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+dust - brew
+
+btop - apt
+
+bat - apt
+
+tlrc - brew
+
+zellij - brew
+
+eza - apt
+#into fish config (~/.config/fish/config.fish)
+alias ls="eza --color=always --long --git --icons=always"
+
+fzf - apt
+#for lazyvim on mac
+brew install fd
+
+thefuck - apt
+
+neovim - apt/brew
+
+layvim
+-git clone https://github.com/LazyVim/starter ~/.config/nvim
+-rm -rf ~/.config/nvim/.git
+
+pyenv - brew
+-alias brew='env PATH="${PATH//$(pyenv root)\/shims:/}" brew'
