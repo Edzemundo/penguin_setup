@@ -13,15 +13,18 @@ fi
 chsh -s $(which fish)
 
 echo "Installing apt packages"
-sudo apt install git curl btop bat eza fzf thefuck -y
+sudo apt install git curl build-essential alacritty btop bat fzf thefuck neofetch -y
 
 echo "Installing and configuring brew..."
+su "$USER"
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo >>/root/.bashrc
+echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>/root/.bashrc
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 echo "Installing brew packages"
 brew update && brew upgrade
-brew install zellij dust tlrc pyenv-virtualenv nvim
-brew install --cask alacritty
+brew install gcc zellij dust eza tlrc pyenv-virtualenv nvim
 
 echo "Copying config files..."
 cp -rf config/* ~/.config/
