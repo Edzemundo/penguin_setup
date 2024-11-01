@@ -21,12 +21,10 @@ detect_package_manager() {
     INSTALL_SCRIPT="apt_setup.sh"
   elif command -v dnf &>/dev/null; then
     PM="dnf"
-    INSTALL_CMD="dnf install -y"
-    UPDATE_CMD="dnf check-update"
+    INSTALL_SCRIPT="dnf_setup.sh"
   elif command -v pacman &>/dev/null; then
     PM="pacman"
-    INSTALL_CMD="pacman -S --noconfirm"
-    UPDATE_CMD="pacman -Sy"
+    INSTALL_SCRIPT="pacman_setup.sh"
   else
     error "No supported package manager found"
   fi
@@ -40,15 +38,14 @@ install() {
     # For Debian/Ubuntu based systems
     echo "Running apt setup..."
     ./$INSTALL_SCRIPT
-    ./fish_setup.sh
     ;;
   "dnf" | "yum")
     # For RHEL/Fedora based systems
-    $INSTALL_CMD fish
+    ./$INSTALL_SCRIPT
     ;;
   "pacman")
     # For Arch Linux
-    $INSTALL_CMD fish
+    ./$INSTALL_SCRIPT
     ;;
   esac
 
