@@ -17,7 +17,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 echo "Installing brew packages"
 brew update && brew upgrade
-brew install gcc zellij dust eza tlrc pyenv-virtualenv nvim
+brew install gcc zellij yazi dust eza tlrc pyenv-virtualenv nvim
 
 echo "Copying config files..."
 cp -rf config/* ~/.config/

@@ -40,7 +40,7 @@ install() {
     # For Debian/Ubuntu based systems
     echo "Running apt setup..."
     ./$INSTALL_SCRIPT
-    # ./fish_setup.sh
+    ./fish_setup.sh
     ;;
   "dnf" | "yum")
     # For RHEL/Fedora based systems
