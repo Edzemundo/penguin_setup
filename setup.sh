@@ -13,6 +13,19 @@ check_root() {
   fi
 }
 
+# Prompt for username
+echo "Please enter your username:"
+read username
+
+# Check if the user exists
+if id "$username" &>/dev/null; then
+  echo "Setting up for '$username'..."
+  echo "Creating user .config folder..."
+  sudo mkdir -p /home/$username/.config/
+else
+  echo "User '$username' does not exist."
+fi
+
 # Function to detect package manager
 detect_package_manager() {
   if command -v apt &>/dev/null; then
@@ -21,12 +34,10 @@ detect_package_manager() {
     INSTALL_SCRIPT="apt_setup.sh"
   elif command -v dnf &>/dev/null; then
     PM="dnf"
-    INSTALL_CMD="dnf install -y"
-    UPDATE_CMD="dnf check-update"
+    INSTALL_SCRIPT="dnf_setup.sh"
   elif command -v pacman &>/dev/null; then
     PM="pacman"
-    INSTALL_CMD="pacman -S --noconfirm"
-    UPDATE_CMD="pacman -Sy"
+    INSTALL_SCRIPT="pacman_setup.sh"
   else
     error "No supported package manager found"
   fi
@@ -40,21 +51,40 @@ install() {
     # For Debian/Ubuntu based systems
     echo "Running apt setup..."
     ./$INSTALL_SCRIPT
-    ./fish_setup.sh
+    sudo -u $username ./brew_setup.sh $username
+    # sudo -u $username ./fish_setup.sh
     ;;
   "dnf" | "yum")
     # For RHEL/Fedora based systems
-    $INSTALL_CMD fish
+    ./$INSTALL_SCRIPT
     ;;
   "pacman")
     # For Arch Linux
-    $INSTALL_CMD fish
+    ./$INSTALL_SCRIPT
     ;;
   esac
 
   if [ $? -ne 0 ]; then
     error "Failed to install"
   fi
+}
+
+config() {
+  echo "Copying config files..."
+
+  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/alacritty /home/$username/.config/
+  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/btop /home/$username/.config/
+  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/nvim /home/$username/.config/
+  sudo mkdir -p /home/$username/.config/fish && sudo cp -rf ./config/config.fish /home/$username/.config/fish/
+  sudo mkdir -p /home/$username/.config/yazi && sudo cp -rf ./config/yazi.toml /home/$username/.config/yazi/
+  # Check if the copying operation was successful
+  if [ $? -eq 0 ]; then
+    echo "Config files copied successfully"
+  else
+    echo "Error: Failed to copy config files" >&2
+    exit 1
+  fi
+
 }
 
 # Main script execution
@@ -70,6 +100,9 @@ main() {
 
   #run install script
   install
+
+  # Copy config files
+  config
 
   echo "Please restart computer to complete setup."
 }
