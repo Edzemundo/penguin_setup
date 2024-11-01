@@ -5,13 +5,6 @@ mkdir -p ~/.config/
 echo "updating apt..."
 sudo apt update && sudo apt upgrade -y
 
-echo "Installing and configuring fish"
-sudo apt install fish -y
-if ! grep -q "^/usr/bin/fish$" /etc/shells; then
-  echo "/usr/bin/fish" >>/etc/shells
-fi
-chsh -s $(which fish)
-
 echo "Installing apt packages"
 sudo apt install git curl build-essential alacritty btop bat fzf thefuck neofetch -y
 

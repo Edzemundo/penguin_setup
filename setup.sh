@@ -23,18 +23,10 @@ detect_package_manager() {
     PM="dnf"
     INSTALL_CMD="dnf install -y"
     UPDATE_CMD="dnf check-update"
-  elif command -v yum &>/dev/null; then
-    PM="yum"
-    INSTALL_CMD="yum install -y"
-    UPDATE_CMD="yum check-update"
   elif command -v pacman &>/dev/null; then
     PM="pacman"
     INSTALL_CMD="pacman -S --noconfirm"
     UPDATE_CMD="pacman -Sy"
-  elif command -v zypper &>/dev/null; then
-    PM="zypper"
-    INSTALL_CMD="zypper install -y"
-    UPDATE_CMD="zypper refresh"
   else
     error "No supported package manager found"
   fi
@@ -48,6 +40,7 @@ install() {
     # For Debian/Ubuntu based systems
     echo "Running apt setup..."
     ./$INSTALL_SCRIPT
+    # ./fish_setup.sh
     ;;
   "dnf" | "yum")
     # For RHEL/Fedora based systems
@@ -57,14 +50,10 @@ install() {
     # For Arch Linux
     $INSTALL_CMD fish
     ;;
-  "zypper")
-    # For OpenSUSE
-    $INSTALL_CMD fish
-    ;;
   esac
 
   if [ $? -ne 0 ]; then
-    error "Failed to install Fish shell"
+    error "Failed to install"
   fi
 }
 
