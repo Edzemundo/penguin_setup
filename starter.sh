@@ -13,5 +13,10 @@ check_root() {
   fi
 }
 
+echo "Please enter your username:"
+read username
+
+echo "Cloning git repo..."
 git clone https://github.com/Edzemundo/penguin_setup
+echo "Changing directory..."
 cd penguin_setup && sudo ./setup.sh

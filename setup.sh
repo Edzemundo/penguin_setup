@@ -105,6 +105,9 @@ main() {
   #run install script
   install
 
+  echo "Changing ownership of config files..."
+  sudo chown -R $username:$username /home/$username/.config
+
   echo "Please restart computer to complete setup."
 }
 
