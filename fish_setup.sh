@@ -7,7 +7,7 @@ if command -v apt &>/dev/null; then
     echo "/usr/bin/fish" >>/etc/shells
   fi
   # su "$USER"
-  # chsh -s $(which fish)
+  sudo -u $username chsh -s $(which fish)
   echo "Fish installed successfully"
 
 elif command -v dnf &>/dev/null; then

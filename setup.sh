@@ -50,9 +50,9 @@ install() {
   "apt")
     # For Debian/Ubuntu based systems
     echo "Running apt setup..."
+    sudo -u $username ./fish_setup.sh $username
     ./$INSTALL_SCRIPT
     sudo -u $username ./brew_setup.sh $username
-    # sudo -u $username ./fish_setup.sh
     ;;
   "dnf" | "yum")
     # For RHEL/Fedora based systems
@@ -73,10 +73,11 @@ config() {
   echo "Copying config files..."
 
   sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/alacritty /home/$username/.config/
-  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/btop /home/$username/.config/
-  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/nvim /home/$username/.config/
+  sudo cp -rf ./config/btop /home/$username/.config/
   sudo mkdir -p /home/$username/.config/fish && sudo cp -rf ./config/config.fish /home/$username/.config/fish/
   sudo mkdir -p /home/$username/.config/yazi && sudo cp -rf ./config/yazi.toml /home/$username/.config/yazi/
+  sudo mkdir -p /home/$username/.config/nvim && git clone https://github.com/LazyVim/starter /home/$username/.config/nvim
+
   # Check if the copying operation was successful
   if [ $? -eq 0 ]; then
     echo "Config files copied successfully"
@@ -98,11 +99,11 @@ main() {
   # Detect package manager
   detect_package_manager
 
-  #run install script
-  install
-
   # Copy config files
   config
+
+  #run install script
+  install
 
   echo "Please restart computer to complete setup."
 }
