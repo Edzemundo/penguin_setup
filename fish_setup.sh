@@ -43,3 +43,5 @@ su "$USER"
 chsh -s $(which fish)
 $SHELL
 echo "Fish installed successfully"
+
+curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher

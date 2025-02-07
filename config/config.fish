@@ -9,7 +9,6 @@ if status is-interactive
 
     alias z="zellij"
     alias ls="eza --color=always --long --git --icons=always"
-    fzf --fish | source
 
     function y
         set tmp (mktemp -t "yazi-cwd.XXXXXX")
