@@ -13,9 +13,12 @@ check_root() {
   fi
 }
 
-# Prompt for username
-echo "Please enter your username:"
-read username
+# Get username
+if [ -z "$1" ]; then
+  error "No input provided. Please provide username as an argument."
+fi
+
+username="$1"
 
 # Check if the user exists
 if id "$username" &>/dev/null; then
@@ -23,7 +26,7 @@ if id "$username" &>/dev/null; then
   echo "Creating user .config folder..."
   sudo mkdir -p /home/$username/.config/
 else
-  echo "User '$username' does not exist."
+  error "User '$username' does not exist."
 fi
 
 # Function to detect package manager

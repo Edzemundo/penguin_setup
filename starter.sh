@@ -1,10 +1,12 @@
+#Run using curl -fSL "https://raw.githubusercontent.com/Edzemundo/penguin_setup/refs/heads/main/starter.sh" | bash
+
 #!/bin/bash
 
 # Function to display error messages
-error() {
-  echo -e "\e[91mError: $1\e[0m" >&2
-  exit 1
-}
+# error() {
+#   echo -e "\e[91mError: $1\e[0m" >&2
+#   exit 1
+# }
 
 # Function to check if running as root
 check_root() {
@@ -13,10 +15,7 @@ check_root() {
   fi
 }
 
-echo "Please enter your username:"
-read username
-
 echo "Cloning git repo..."
 git clone https://github.com/Edzemundo/penguin_setup
 echo "Changing directory..."
-cd penguin_setup && sudo ./setup.sh
+cd penguin_setup && sudo ./setup.sh "esa"
