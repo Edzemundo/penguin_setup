@@ -15,10 +15,11 @@ check_root() {
 
 # Get username
 if [ -z "$1" ]; then
-  error "No input provided. Please provide username as an argument."
+  echo "No input provided. Please provide username: "
+  read username
+else
+  username="$1"
 fi
-
-username="$1"
 
 # Check if the user exists
 if id "$username" &>/dev/null; then
@@ -111,7 +112,9 @@ main() {
   echo "Changing ownership of config files..."
   sudo chown -R $username:$username /home/$username/.config
 
-  echo "Please restart computer to complete setup."
+  echo ""
+  echo "PLEASE RESTART COMPUTER TO COMPLETE SETUP."
+  echo ""
 }
 
 # Run the script
