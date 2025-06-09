@@ -2,10 +2,6 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    status --is-interactive; and source (pyenv virtualenv-init -|psub)
-
-    eval "$(pyenv init -)"
-    eval "$(pyenv virtualenv-init -)"
 
     alias z="zellij"
     alias ls="eza --color=always --long --git --icons=always"

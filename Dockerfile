@@ -1,22 +1,17 @@
-FROM debian:latest
+FROM ubuntu:latest
 
 WORKDIR /app
 
-RUN rm /bin/sh &&  ln -s /bin/bash /bin/sh
+SHELL ["/bin/bash", "-c"]
 
-RUN apt update && apt upgrade -y && apt install sudo adduser git curl -y
-RUN useradd -m test && \
-  echo "root:tester"| chpasswd && \
-  echo "test:tester" | chpasswd && \
-  adduser test sudo
+RUN apt update && apt upgrade -y
 
-# RUN sudo apt install fish -y
-# RUN echo "tester" | sudo -u test chsh -s $(which fish)
-# RUN sudo -u test fish
+RUN apt install adduser sudo -y
 
-# RUN sudo curl -O https://raw.githubusercontent.com/Edzemundo/penguin_setup/refs/heads/main/starter.sh
-COPY starter.sh /app
+RUN adduser --gecos "" tester
+RUN adduser tester sudo
+RUN echo "tester:tester" | chpasswd
 
-USER test
+USER tester
 
-CMD ["/bin/bash"]
+CMD [ "sudo", "./setup.sh", "tester" ]

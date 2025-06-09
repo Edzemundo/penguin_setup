@@ -80,7 +80,7 @@ config() {
   sudo cp -rf ./config/btop /home/$username/.config/
   sudo mkdir -p /home/$username/.config/fish && sudo cp -rf ./config/config.fish /home/$username/.config/fish/
   sudo mkdir -p /home/$username/.config/yazi && sudo cp -rf ./config/yazi.toml /home/$username/.config/yazi/
-  sudo mkdir -p /home/$username/.config/nvim && git clone https://github.com/LazyVim/starter /home/$username/.config/nvim
+  sudo mkdir -p /home/$username/.config/nvim && sudo cp -rf ./config/nvim/ /home/$username/.config/nvim
 
   # Check if the copying operation was successful
   if [ $? -eq 0 ]; then

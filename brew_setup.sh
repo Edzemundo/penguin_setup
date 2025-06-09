@@ -8,6 +8,8 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 echo "Installing brew packages"
 brew update && brew upgrade
-brew install gcc bat zellij yazi dust eza tlrc pyenv-virtualenv nvim gh lazydocker lazygit
+brew install gcc bat zellij yazi dust eza tlrc nvim
+brew install jesseduffield/lazygit/lazygit
+brew install jesseduffield/lazydocker/lazydocker
 
 echo "Brew installed successfully"

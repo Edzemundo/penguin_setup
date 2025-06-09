@@ -4,6 +4,9 @@ echo "updating apt..."
 sudo apt update && sudo apt upgrade -y
 
 echo "Installing apt packages"
-sudo apt install git curl build-essential libsqlite3-dev nano btop fzf thefuck neofetch -y
+sudo apt install git curl build-essential libsqlite3-dev gh nano btop fzf -y
+
+echo "Installing uv"
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 echo "Apt setup completed successfully"
