@@ -76,11 +76,13 @@ install() {
 config() {
   echo "Copying config files..."
 
-  sudo mkdir -p /home/$username/.config && sudo cp -rf ./config/alacritty /home/$username/.config/
-  sudo cp -rf ./config/btop /home/$username/.config/
-  sudo mkdir -p /home/$username/.config/fish && sudo cp -rf ./config/config.fish /home/$username/.config/fish/
-  sudo mkdir -p /home/$username/.config/yazi && sudo cp -rf ./config/yazi.toml /home/$username/.config/yazi/
-  sudo mkdir -p /home/$username/.config/nvim && sudo cp -rf ./config/nvim/ /home/$username/.config/nvim
+  sudo mkdir -p /home/$username/.config
+  sudo rm -rf /home/$username/.config/alacritty && sudo cp -rf ./config/alacritty /home/$username/.config/
+  sudo rm -rf /home/$username/.config/kitty && sudo cp -rf ./config/kitty /home/$username/.config/
+  sudo rm -rf /home/$username/.config/btop && sudo cp -rf ./config/btop /home/$username/.config/
+  sudo rm -rf /home/$username/.config/nvim && sudo cp -rf ./config/nvim /home/$username/.config/
+  sudo rm -rf /home/$username/.config/fish && sudo cp -rf ./config/fish /home/$username/.config/
+  sudo rm -rf /home/$username/.config/yazi && sudo cp -rf ./config/yazi /home/$username/.config/
 
   # Check if the copying operation was successful
   if [ $? -eq 0 ]; then
