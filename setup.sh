@@ -40,6 +40,21 @@ detect_package_manager() {
 
 # Function to run setup scripts
 install() {
+  # Run package manager specific setup
+  if [ "$PM" = "apt" ]; then
+    echo "Running apt setup..."
+    ./apt_setup.sh || error "Failed to run apt setup"
+  elif [ "$PM" = "dnf" ]; then
+    echo "Running dnf setup..."
+    ./dnf_setup.sh || error "Failed to run dnf setup"
+  elif [ "$PM" = "pacman" ]; then
+    echo "Running pacman setup..."
+    # pacman setup if it exists, otherwise skip
+    if [ -f "./pacman_setup.sh" ]; then
+      ./pacman_setup.sh || error "Failed to run pacman setup"
+    fi
+  fi
+
   echo "Installing Fish shell..."
   ./fish_setup.sh || error "Failed to install Fish"
 

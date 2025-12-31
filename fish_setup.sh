@@ -1,6 +1,7 @@
 #!/bin/bash
 
 FISH_PATH="/usr/bin/fish"
+FISH_PATH_2="/usr/sbin/fish"
 
 if command -v apt &>/dev/null; then
   echo "Installing and configuring fish"
@@ -25,12 +26,11 @@ if ! grep -q "^${FISH_PATH}$" /etc/shells; then
   echo "$FISH_PATH" | sudo tee -a /etc/shells > /dev/null
 fi
 
-# Change default shell
-echo "Changing default shell to fish"
-chsh -s "$FISH_PATH"
-echo "Fish installed successfully"
+echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
 
-# Install fisher and fisher plugins
-echo "Installing fisher and plugins"
-curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher
-fisher install PatrickF1/fzf.fish
+# Reload shell with new configuration
+echo "Reloading shell..."
+echo "Type 'exit' and hit enter to return to the setup script after shell reloads."
+exec $SHELL
+
+echo "Fish installed successfully"
