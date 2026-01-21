@@ -28,6 +28,6 @@ fi
 
 echo "Installing brew packages..."
 brew update && brew upgrade
-brew install gcc bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch
+brew install gcc bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch neovim zoxide
 
 echo "Brew installed successfully"

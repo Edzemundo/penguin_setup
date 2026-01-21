@@ -24,4 +24,7 @@ if status is-interactive
 
     # Auto-start zellij
     eval (zellij setup --generate-auto-start fish | string collect)
+
+    # Zoxide init
+    zoxide init fish | source
 end
