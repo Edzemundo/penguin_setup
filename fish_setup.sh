@@ -26,11 +26,8 @@ if ! grep -q "^${FISH_PATH}$" /etc/shells; then
   echo "$FISH_PATH" | sudo tee -a /etc/shells > /dev/null
 fi
 
-echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
-
-# Reload shell with new configuration
-echo "Reloading shell..."
-echo "Type 'exit' and hit enter to return to the setup script after shell reloads."
-exec $SHELL
+if ! grep -q "^${FISH_PATH_2}$" /etc/shells; then
+  echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
+fi
 
 echo "Fish installed successfully"

@@ -43,23 +43,20 @@ install() {
   # Run package manager specific setup
   if [ "$PM" = "apt" ]; then
     echo "Running apt setup..."
-    ./apt_setup.sh || error "Failed to run apt setup"
+    ./apt_setup.sh "$username" || error "Failed to run apt setup"
   elif [ "$PM" = "dnf" ]; then
     echo "Running dnf setup..."
-    ./dnf_setup.sh || error "Failed to run dnf setup"
+    ./dnf_setup.sh "$username" || error "Failed to run dnf setup"
   elif [ "$PM" = "pacman" ]; then
     echo "Running pacman setup..."
-    # pacman setup if it exists, otherwise skip
-    if [ -f "./pacman_setup.sh" ]; then
-      ./pacman_setup.sh || error "Failed to run pacman setup"
-    fi
+    ./pacman_setup.sh "$username" || error "Failed to run pacman setup"
   fi
 
   echo "Installing Fish shell..."
   ./fish_setup.sh || error "Failed to install Fish"
 
   echo "Installing Brew..."
-  ./brew_setup.sh || error "Failed to install Brew"
+  ./brew_setup.sh "$username" || error "Failed to install Brew"
 
   echo "Installation complete"
 }
