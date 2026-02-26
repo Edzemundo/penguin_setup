@@ -64,12 +64,13 @@ install() {
 config() {
   echo "Copying config files..."
 
-  CONFIG_DIRS=("alacritty" "kitty" "fish" "yazi")
+  CONFIG_DIRS=("alacritty" "kitty" "fish" "yazi" "zellij" "nvim")
 
   for dir in "${CONFIG_DIRS[@]}"; do
     if [ -d "./config/$dir" ]; then
       sudo rm -rf /home/$username/.config/$dir
-      sudo cp -rf ./config/$dir /home/$username/.config/
+      sudo mkdir -p /home/$username/.config/$dir
+      sudo rsync -a --exclude='.git' ./config/$dir/ /home/$username/.config/$dir/
     else
       echo "Warning: ./config/$dir not found, skipping"
     fi

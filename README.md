@@ -52,6 +52,8 @@ Pre-configured dotfiles for:
 - `kitty` - Feature-rich terminal
 - `fish` - Fish shell with aliases and yazi integration
 - `yazi` - Terminal file manager
+- `zellij` - Terminal multiplexer with custom keybinds and layouts
+- `nvim` - LazyVim-based Neovim config with extras (claudecode, harpoon2, fzf, python, markdown)
 
 ## 🖥️ Supported Distributions
 
