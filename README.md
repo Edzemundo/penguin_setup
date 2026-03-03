@@ -1,8 +1,8 @@
 # 🐧 Penguin Setup
 
-Automate your Linux development environment setup in minutes instead of hours.
+Automate your development environment setup in minutes instead of hours.
 
-This project bootstraps a modern, productive CLI environment with Fish shell, Homebrew, and a curated selection of developer tools across Debian, Fedora, and Arch-based distributions.
+This project bootstraps a modern, productive CLI environment with Fish shell, Homebrew, and a curated selection of developer tools across Linux distributions and macOS.
 
 ## ✨ What Gets Installed
 
@@ -55,30 +55,57 @@ Pre-configured dotfiles for:
 - `zellij` - Terminal multiplexer with custom keybinds and layouts
 - `nvim` - LazyVim-based Neovim config with extras (claudecode, harpoon2, fzf, python, markdown)
 
-## 🖥️ Supported Distributions
+## 🖥️ Supported Platforms
 
-| Distribution | Package Manager | Status |
-|--------------|-----------------|--------|
+| Platform | Package Manager | Status |
+|----------|-----------------|--------|
+| macOS | Homebrew | ✅ Supported |
 | Ubuntu / Debian | apt | ✅ Supported |
 | Fedora / RHEL | dnf | ✅ Supported |
 | Arch / Manjaro | pacman | ✅ Supported |
 
 ## 📋 Prerequisites
 
+### For Linux:
 - A supported Linux distribution
 - `sudo` privileges
 - Internet connection
 - `curl` installed
 
+### For macOS:
+- macOS (any recent version)
+- Internet connection
+- Xcode Command Line Tools (recommended - will be installed if missing)
+
 ## 🚀 Installation
 
-### Quick Start (One-liner)
+### macOS Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/Edzemundo/penguin_setup.git
+cd penguin_setup
+
+# Review the scripts before running (recommended)
+less setup.sh
+less macos_setup.sh
+
+# Make scripts executable
+chmod +x *.sh
+
+# Run the setup (no sudo needed on macOS for personal setup)
+./setup.sh $USER
+```
+
+### Linux Installation
+
+#### Quick Start (One-liner)
 
 ```bash
 sudo curl -O https://raw.githubusercontent.com/Edzemundo/penguin_setup/refs/heads/main/starter.sh && sudo /bin/bash starter.sh
 ```
 
-### Manual Installation (Recommended for security-conscious users)
+#### Manual Installation (Recommended for security-conscious users)
 
 ```bash
 # Clone the repository
@@ -127,6 +154,13 @@ sudo ./setup.sh tester
 
 After installation completes:
 
+### On macOS:
+1. **Restart your terminal** or run `exec fish` to start using Fish shell
+2. To set Fish as your default shell, run: `chsh -s $(which fish)`
+3. Zellij will auto-start in Fish interactive sessions
+4. Use `y` alias to launch yazi with directory changing support
+
+### On Linux:
 1. **Restart your computer** to ensure all changes take effect
 2. Fish shell will be available but not set as default - run `chsh -s /usr/bin/fish` to set it
 3. Zellij will auto-start in Fish interactive sessions
@@ -137,6 +171,25 @@ After installation completes:
 The fish config includes these aliases:
 - `ls` → `eza --color=always --long --git --icons=always`
 - `y` → Launch yazi with cwd tracking
+
+## 🍎 macOS-Specific Notes
+
+### Homebrew Paths
+The setup automatically detects your Homebrew installation:
+- **Apple Silicon Macs**: `/opt/homebrew`
+- **Intel Macs**: `/usr/local`
+
+### Xcode Command Line Tools
+Some tools require Xcode Command Line Tools. The setup will prompt you to install them if missing. You can also install them manually:
+```bash
+xcode-select --install
+```
+
+### Differences from Linux
+- No `sudo` required for personal config file installation
+- Uses system-native `git`, `curl`, and other tools when available
+- Homebrew is the primary package manager (no apt/dnf/pacman)
+- Some packages (like `gcc`) are skipped as they're provided by Xcode
 
 ## 🤝 Contributing
 
