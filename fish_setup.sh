@@ -3,7 +3,26 @@
 FISH_PATH="/usr/bin/fish"
 FISH_PATH_2="/usr/sbin/fish"
 
-if command -v apt &>/dev/null; then
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "Installing and configuring fish on macOS"
+  
+  # Check if fish is already installed
+  if ! command -v fish &>/dev/null; then
+    # Install via Homebrew
+    if command -v brew &>/dev/null; then
+      brew install fish
+    else
+      echo "Error: Homebrew not found. Please install Homebrew first."
+      exit 1
+    fi
+  else
+    echo "Fish already installed"
+  fi
+  
+  # Get fish path from brew
+  FISH_PATH=$(which fish)
+
+elif command -v apt &>/dev/null; then
   echo "Installing and configuring fish"
   sudo apt install fish -y
 
@@ -22,11 +41,11 @@ fi
 
 # Register fish shell
 echo "Registering fish shell"
-if ! grep -q "^${FISH_PATH}$" /etc/shells; then
+if ! grep -q "^${FISH_PATH}$" /etc/shells 2>/dev/null; then
   echo "$FISH_PATH" | sudo tee -a /etc/shells > /dev/null
 fi
 
-if ! grep -q "^${FISH_PATH_2}$" /etc/shells; then
+if [ -n "$FISH_PATH_2" ] && ! grep -q "^${FISH_PATH_2}$" /etc/shells 2>/dev/null; then
   echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
 fi
 
