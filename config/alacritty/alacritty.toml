@@ -18,5 +18,5 @@ size = 17
 [terminal]
 
 [terminal.shell]
-program = "/usr/local/bin/fish"
+program = "/usr/bin/fish"
 args = ["-l"]

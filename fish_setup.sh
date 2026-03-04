@@ -30,4 +30,10 @@ if ! grep -q "^${FISH_PATH_2}$" /etc/shells; then
   echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
 fi
 
+# Create symlink for compatibility with configs expecting /usr/local/bin/fish
+if [ ! -e /usr/local/bin/fish ] && [ -x /usr/bin/fish ]; then
+  echo "Creating symlink /usr/local/bin/fish -> /usr/bin/fish"
+  sudo ln -s /usr/bin/fish /usr/local/bin/fish
+fi
+
 echo "Fish installed successfully"
