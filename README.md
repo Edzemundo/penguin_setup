@@ -19,6 +19,12 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 | `npm` | Node.js package manager |
 | `luarocks` | Lua package manager |
 | `neovim` | Modern Vim-based editor |
+| `fastfetch` | System info display |
+| `ghostty` | GPU-accelerated terminal (Arch only) |
+| `hyprland` | Wayland compositor (Arch only) |
+| `waybar` | Wayland status bar (Arch only) |
+| `walker` | Application launcher (Arch only) |
+| `zed` | Modern code editor (Arch only) |
 
 ### Python Tools
 | Tool | Description |
@@ -47,13 +53,25 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 
 ## 📁 Included Configurations
 
-Pre-configured dotfiles for:
-- `alacritty` - GPU-accelerated terminal
-- `kitty` - Feature-rich terminal
+### Base (all installs)
 - `fish` - Fish shell with aliases and yazi integration
+- `nvim` - LazyVim-based Neovim config with extras (opencode, harpoon2, fzf, python, markdown)
 - `yazi` - Terminal file manager
 - `zellij` - Terminal multiplexer with custom keybinds and layouts
-- `nvim` - LazyVim-based Neovim config with extras (claudecode, harpoon2, fzf, python, markdown)
+- `btop` - System monitor config
+- `fastfetch` - System info display config
+- `git` - Global git config with aliases, histogram diffs, rerere
+
+### Desktop (skipped with `--headless`)
+- `alacritty` - GPU-accelerated terminal
+- `kitty` - Feature-rich terminal
+- `ghostty` - Modern GPU terminal (Omarchy-themed)
+- `hypr` - Hyprland personal overrides (requires Omarchy for defaults)
+- `waybar` - Wayland status bar config and CSS
+- `walker` - Application launcher (Omarchy-themed)
+- `zed` - Zed editor settings, vim mode, Tokyo Night Dark theme
+
+> **Note:** Configs marked "Omarchy-themed" source their color theme from `~/.config/omarchy/current/theme/`. Install [Omarchy](https://github.com/basecamp/omarchy) first on Arch-based systems.
 
 ## 🖥️ Supported Distributions
 
@@ -94,6 +112,9 @@ chmod +x *.sh
 
 # Run the setup with your username
 sudo ./setup.sh $USER
+
+# Headless / server install (skips desktop configs)
+sudo ./setup.sh $USER --headless
 ```
 
 ## 🔒 Security Note
@@ -135,7 +156,11 @@ After installation completes:
 ## 🎨 Fish Shell Aliases
 
 The fish config includes these aliases:
-- `ls` → `eza --color=always --long --git --icons=always`
+- `lg` → `lazygit`
+- `ld` → `lazydocker`
+- `ff` → `fastfetch`
+- `nv` → `nvim`
+- `zed` → `zeditor`
 - `y` → Launch yazi with cwd tracking
 
 ## 🤝 Contributing

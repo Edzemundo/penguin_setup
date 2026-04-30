@@ -6,12 +6,23 @@ error() {
   exit 1
 }
 
-# Get username
-if [ -z "$1" ]; then
+# Parse flags
+HEADLESS=false
+for arg in "$@"; do
+  [[ "$arg" == "--headless" ]] && HEADLESS=true
+done
+
+# Get username (first non-flag argument)
+username=""
+for arg in "$@"; do
+  [[ "$arg" == --* ]] && continue
+  username="$arg"
+  break
+done
+
+if [ -z "$username" ]; then
   echo "No input provided. Please provide username: "
   read username
-else
-  username="$1"
 fi
 
 # Check if the user exists
@@ -64,7 +75,15 @@ install() {
 config() {
   echo "Copying config files..."
 
-  CONFIG_DIRS=("alacritty" "kitty" "fish" "yazi" "zellij" "nvim")
+  BASE_DIRS=("fish" "nvim" "yazi" "zellij" "btop" "fastfetch" "git")
+  DESKTOP_DIRS=("alacritty" "kitty" "ghostty" "hypr" "waybar" "walker" "zed")
+
+  if [ "$HEADLESS" = true ]; then
+    echo "Headless mode: skipping desktop configs"
+    CONFIG_DIRS=("${BASE_DIRS[@]}")
+  else
+    CONFIG_DIRS=("${BASE_DIRS[@]}" "${DESKTOP_DIRS[@]}")
+  fi
 
   for dir in "${CONFIG_DIRS[@]}"; do
     if [ -d "./config/$dir" ]; then

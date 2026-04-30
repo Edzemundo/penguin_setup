@@ -1,22 +1,25 @@
+general.import = [ "~/.config/omarchy/current/theme/alacritty.toml" ]
+
 [env]
 TERM = "xterm-256color"
 
-[window]
-padding.x = 10
-padding.y = 10
-
-decorations = "Buttonless"
-
-opacity = 0.2
-blur  = true
+[terminal]
+osc52 = "CopyPaste"
 
 [font]
-normal.family = "MesloLGS Nerd Font Mono"
+normal = { family = "JetBrainsMonoNL Nerd Font" }
+bold = { family = "JetBrainsMonoNL Nerd Font" }
+italic = { family = "JetBrainsMonoNL Nerd Font" }
+size = 12
 
-size = 17
+[window]
+padding.x = 14
+padding.y = 14
+decorations = "None"
 
-[terminal]
-
-[terminal.shell]
-program = "/usr/bin/fish"
-args = ["-l"]
+[keyboard]
+bindings = [
+{ key = "Insert", mods = "Shift", action = "Paste" },
+{ key = "Insert", mods = "Control", action = "Copy" },
+{ key = "Return", mods = "Shift", chars = "\u001B\r" }
+]
