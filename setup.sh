@@ -101,7 +101,7 @@ config() {
   echo "Copying config files..."
 
   BASE_DIRS=("fish" "nvim" "yazi" "zellij" "btop" "fastfetch" "git")
-  DESKTOP_DIRS=("alacritty" "kitty" "ghostty" "hypr" "waybar" "walker" "zed")
+  DESKTOP_DIRS=("kitty" "ghostty" "hypr" "waybar" "walker" "zed")
 
   if [ "$HEADLESS" = true ]; then
     echo "Headless mode: skipping desktop configs"

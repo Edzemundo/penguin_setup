@@ -34,7 +34,6 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 ### Homebrew Packages
 | Tool | Description |
 |------|-------------|
-| `gcc` | GNU Compiler Collection |
 | `bat` | Cat clone with syntax highlighting |
 | `zellij` | Terminal multiplexer |
 | `yazi` | Terminal file manager |

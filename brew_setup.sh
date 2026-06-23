@@ -53,8 +53,10 @@ fi
 
 # Add brew to user's bashrc if on Linux
 if [[ "$OSTYPE" != "darwin"* ]]; then
-  echo >> $USER_HOME/.bashrc
-  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $USER_HOME/.bashrc
+  if ! grep -q "brew shellenv" "$USER_HOME/.bashrc" 2>/dev/null; then
+    echo >> $USER_HOME/.bashrc
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $USER_HOME/.bashrc
+  fi
 fi
 
 # Add brew to user's fish config if fish is installed
