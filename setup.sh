@@ -30,19 +30,35 @@ if ! id "$username" &>/dev/null; then
   error "User '$username' does not exist."
 fi
 
-echo "Setting up for '$username'..."
-mkdir -p /home/$username/.config/
+# Determine user home directory based on OS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  USER_HOME="$HOME"
+  OS="macos"
+else
+  USER_HOME="/home/$username"
+  OS="linux"
+fi
 
-# Function to detect package manager
-detect_package_manager() {
-  if command -v apt &>/dev/null; then
+echo "Setting up for '$username'..."
+mkdir -p $USER_HOME/.config/
+
+# Function to detect OS and package manager
+detect_system() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "macOS system detected"
+    OS="macos"
+    PM="brew"
+  elif command -v apt &>/dev/null; then
     echo "Debian-based system detected"
+    OS="linux"
     PM="apt"
   elif command -v dnf &>/dev/null; then
     echo "Fedora-based system detected"
+    OS="linux"
     PM="dnf"
   elif command -v pacman &>/dev/null; then
     echo "Arch-based system detected"
+    OS="linux"
     PM="pacman"
   else
     error "No supported package manager found"
@@ -51,23 +67,32 @@ detect_package_manager() {
 
 # Function to run setup scripts
 install() {
-  # Run package manager specific setup
-  if [ "$PM" = "apt" ]; then
-    echo "Running apt setup..."
-    ./apt_setup.sh "$username" || error "Failed to run apt setup"
-  elif [ "$PM" = "dnf" ]; then
-    echo "Running dnf setup..."
-    ./dnf_setup.sh "$username" || error "Failed to run dnf setup"
-  elif [ "$PM" = "pacman" ]; then
-    echo "Running pacman setup..."
-    ./pacman_setup.sh "$username" || error "Failed to run pacman setup"
+  # Run OS-specific setup
+  if [ "$OS" = "macos" ]; then
+    echo "Installing Brew..."
+    ./brew_setup.sh "$username" || error "Failed to install Brew"
+    
+    echo "Running macOS setup..."
+    ./macos_setup.sh "$username" || error "Failed to run macOS setup"
+  else
+    # Run Linux package manager specific setup
+    if [ "$PM" = "apt" ]; then
+      echo "Running apt setup..."
+      ./apt_setup.sh "$username" || error "Failed to run apt setup"
+    elif [ "$PM" = "dnf" ]; then
+      echo "Running dnf setup..."
+      ./dnf_setup.sh "$username" || error "Failed to run dnf setup"
+    elif [ "$PM" = "pacman" ]; then
+      echo "Running pacman setup..."
+      ./pacman_setup.sh "$username" || error "Failed to run pacman setup"
+    fi
+
+    echo "Installing Brew..."
+    ./brew_setup.sh "$username" || error "Failed to install Brew"
   fi
 
   echo "Installing Fish shell..."
   ./fish_setup.sh || error "Failed to install Fish"
-
-  echo "Installing Brew..."
-  ./brew_setup.sh "$username" || error "Failed to install Brew"
 
   echo "Installation complete"
 }
@@ -76,7 +101,7 @@ config() {
   echo "Copying config files..."
 
   BASE_DIRS=("fish" "nvim" "yazi" "zellij" "btop" "fastfetch" "git")
-  DESKTOP_DIRS=("alacritty" "kitty" "ghostty" "hypr" "waybar" "walker" "zed")
+  DESKTOP_DIRS=("kitty" "ghostty" "hypr" "waybar" "walker" "zed")
 
   if [ "$HEADLESS" = true ]; then
     echo "Headless mode: skipping desktop configs"
@@ -87,16 +112,52 @@ config() {
 
   for dir in "${CONFIG_DIRS[@]}"; do
     if [ -d "./config/$dir" ]; then
-      sudo rm -rf /home/$username/.config/$dir
-      sudo mkdir -p /home/$username/.config/$dir
-      sudo rsync -a --exclude='.git' ./config/$dir/ /home/$username/.config/$dir/
+      # Use sudo only on Linux, not needed on macOS for own files
+      if [ "$OS" = "macos" ]; then
+        rm -rf $USER_HOME/.config/$dir
+        mkdir -p $USER_HOME/.config/$dir
+        rsync -a --exclude='.git' ./config/$dir/ $USER_HOME/.config/$dir/
+      else
+        sudo rm -rf $USER_HOME/.config/$dir
+        sudo mkdir -p $USER_HOME/.config/$dir
+        sudo rsync -a --exclude='.git' ./config/$dir/ $USER_HOME/.config/$dir/
+      fi
     else
       echo "Warning: ./config/$dir not found, skipping"
     fi
   done
 
-  echo "Changing ownership of config files..."
-  sudo chown -R $username:$username /home/$username/.config
+  # Fix ownership on Linux only
+  if [ "$OS" = "linux" ]; then
+    echo "Changing ownership of config files..."
+    sudo chown -R $username:$username $USER_HOME/.config
+  fi
+}
+
+fisher_setup() {
+  local fish_bin
+  fish_bin=$(command -v fish 2>/dev/null || echo "/usr/bin/fish")
+  local plugins_file="$USER_HOME/.config/fish/fish_plugins"
+
+  if [ ! -f "$plugins_file" ]; then
+    echo "Warning: fish_plugins not found, skipping fisher install"
+    return
+  fi
+
+  echo "Installing fisher and fish plugins..."
+  if [ "$OS" = "macos" ]; then
+    "$fish_bin" -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
+      || echo "Warning: fisher bootstrap failed"
+    "$fish_bin" -c "fisher install < $plugins_file" \
+      || echo "Warning: fisher plugin install failed"
+  else
+    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
+      "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
+      || echo "Warning: fisher bootstrap failed"
+    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
+      "fisher install < $plugins_file" \
+      || echo "Warning: fisher plugin install failed"
+  fi
 }
 
 # Main script execution
@@ -104,8 +165,8 @@ main() {
   echo "Running setup script..."
   echo "-----------------------------"
 
-  # Detect package manager
-  detect_package_manager
+  # Detect OS and package manager
+  detect_system
 
   # Run install script
   install
@@ -113,8 +174,16 @@ main() {
   # Copy config files
   config
 
+  # Install fisher and fish plugins (must run after config is copied)
+  fisher_setup
+
   echo ""
-  echo "PLEASE RESTART COMPUTER TO COMPLETE SETUP."
+  if [ "$OS" = "macos" ]; then
+    echo "Setup complete! Please restart your terminal or run: exec fish"
+    echo "To set Fish as default shell, run: chsh -s $(which fish)"
+  else
+    echo "PLEASE RESTART COMPUTER TO COMPLETE SETUP."
+  fi
   echo ""
 }
 
