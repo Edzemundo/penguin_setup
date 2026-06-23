@@ -134,6 +134,32 @@ config() {
   fi
 }
 
+fisher_setup() {
+  local fish_bin
+  fish_bin=$(command -v fish 2>/dev/null || echo "/usr/bin/fish")
+  local plugins_file="$USER_HOME/.config/fish/fish_plugins"
+
+  if [ ! -f "$plugins_file" ]; then
+    echo "Warning: fish_plugins not found, skipping fisher install"
+    return
+  fi
+
+  echo "Installing fisher and fish plugins..."
+  if [ "$OS" = "macos" ]; then
+    "$fish_bin" -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
+      || echo "Warning: fisher bootstrap failed"
+    "$fish_bin" -c "fisher install < $plugins_file" \
+      || echo "Warning: fisher plugin install failed"
+  else
+    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
+      "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
+      || echo "Warning: fisher bootstrap failed"
+    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
+      "fisher install < $plugins_file" \
+      || echo "Warning: fisher plugin install failed"
+  fi
+}
+
 # Main script execution
 main() {
   echo "Running setup script..."
@@ -147,6 +173,9 @@ main() {
 
   # Copy config files
   config
+
+  # Install fisher and fish plugins (must run after config is copied)
+  fisher_setup
 
   echo ""
   if [ "$OS" = "macos" ]; then
