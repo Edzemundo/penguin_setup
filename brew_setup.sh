@@ -33,7 +33,7 @@ fi
 if ! command -v brew &>/dev/null; then
   echo "Installing Homebrew..."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  
+
   # Update BREW_PREFIX after installation if it was empty
   if [[ "$OSTYPE" == "darwin"* ]] && [ -z "$BREW_PREFIX" ]; then
     if [ -d "/opt/homebrew" ]; then
@@ -54,8 +54,8 @@ fi
 # Add brew to user's bashrc if on Linux
 if [[ "$OSTYPE" != "darwin"* ]]; then
   if ! grep -q "brew shellenv" "$USER_HOME/.bashrc" 2>/dev/null; then
-    echo >> $USER_HOME/.bashrc
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $USER_HOME/.bashrc
+    echo >>$USER_HOME/.bashrc
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>$USER_HOME/.bashrc
   fi
 fi
 
@@ -70,7 +70,7 @@ if [ -d "$USER_HOME/.config/fish" ]; then
       : # No-op, let config.fish handle it
     else
       # Linux - add if not present
-      echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $USER_HOME/.config/fish/config.fish
+      echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>$USER_HOME/.config/fish/config.fish
     fi
   fi
 fi
@@ -81,9 +81,9 @@ brew update && brew upgrade
 # Install packages
 # Note: gcc is not needed on macOS (uses Xcode's toolchain)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  brew install bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch neovim zoxide atuin
+  brew install bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch neovim zoxide
 else
-  brew install gcc bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch neovim zoxide atuin
+  brew install gcc bat zellij yazi dust eza lazygit lazydocker fzf ripgrep fd fastfetch neovim zoxide
 fi
 
 echo "Brew installed successfully"
