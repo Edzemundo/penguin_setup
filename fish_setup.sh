@@ -45,7 +45,7 @@ if ! grep -q "^${FISH_PATH}$" /etc/shells 2>/dev/null; then
   echo "$FISH_PATH" | sudo tee -a /etc/shells > /dev/null
 fi
 
-if [ -n "$FISH_PATH_2" ] && ! grep -q "^${FISH_PATH_2}$" /etc/shells 2>/dev/null; then
+if [ -x "$FISH_PATH_2" ] && ! grep -q "^${FISH_PATH_2}$" /etc/shells 2>/dev/null; then
   echo "$FISH_PATH_2" | sudo tee -a /etc/shells > /dev/null
 fi
 
