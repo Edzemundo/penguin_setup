@@ -36,7 +36,6 @@ if status is-interactive
 
     fzf --fish | source
     zoxide init fish | source
-    atuin init fish | source
 
     theme_tokyonight night
 

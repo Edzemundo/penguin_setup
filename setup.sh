@@ -71,7 +71,12 @@ install() {
   if [ "$OS" = "macos" ]; then
     echo "Installing Brew..."
     ./brew_setup.sh "$username" || error "Failed to install Brew"
-    
+
+    # brew_setup.sh runs in a child process, so re-add brew to PATH here
+    for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+      [ -x "$brew_bin" ] && eval "$("$brew_bin" shellenv)" && break
+    done
+
     echo "Running macOS setup..."
     ./macos_setup.sh "$username" || error "Failed to run macOS setup"
   else
