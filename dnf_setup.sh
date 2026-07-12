@@ -14,7 +14,7 @@ echo "Updating dnf..."
 sudo dnf update -y && sudo dnf upgrade -y
 
 echo "Installing dnf packages..."
-sudo dnf install git curl vim neovim nodejs npm btop fzf gh nano luarocks sqlite-devel rsync -y
+sudo dnf install git curl vim nodejs npm btop gh nano luarocks sqlite-devel rsync -y
 sudo dnf group install development-tools -y
 
 echo "Installing uv..."

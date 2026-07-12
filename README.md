@@ -15,11 +15,8 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 | `gh` | GitHub CLI |
 | `nano` | Simple text editor |
 | `btop` | System monitor |
-| `fzf` | Fuzzy finder |
 | `npm` | Node.js package manager |
 | `luarocks` | Lua package manager |
-| `neovim` | Modern Vim-based editor |
-| `fastfetch` | System info display |
 | `ghostty` | GPU-accelerated terminal (Arch only) |
 | `hyprland` | Wayland compositor (Arch only) |
 | `waybar` | Wayland status bar (Arch only) |
@@ -34,6 +31,7 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 ### Homebrew Packages
 | Tool | Description |
 |------|-------------|
+| `neovim` | Modern Vim-based editor |
 | `bat` | Cat clone with syntax highlighting |
 | `zellij` | Terminal multiplexer |
 | `yazi` | Terminal file manager |
@@ -45,6 +43,7 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 | `ripgrep` | Fast grep alternative |
 | `fd` | Fast find alternative |
 | `fastfetch` | System info display |
+| `zoxide` | Smarter `cd` command |
 
 ### Shell & Editor
 - **Fish Shell** - Modern, user-friendly shell
@@ -62,7 +61,6 @@ This project bootstraps a modern, productive CLI environment with Fish shell, Ho
 - `git` - Global git config with aliases, histogram diffs, rerere
 
 ### Desktop (skipped with `--headless`)
-- `alacritty` - GPU-accelerated terminal
 - `kitty` - Feature-rich terminal
 - `ghostty` - Modern GPU terminal (Omarchy-themed)
 - `hypr` - Hyprland personal overrides (requires Omarchy for defaults)

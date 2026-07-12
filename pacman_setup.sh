@@ -14,7 +14,7 @@ echo "Updating pacman..."
 sudo pacman -Syu --noconfirm
 
 echo "Installing pacman packages..."
-sudo pacman -S --noconfirm git curl base-devel sqlite github-cli nano btop fzf npm luarocks neovim nodejs ripgrep fd rsync fastfetch ghostty hyprland waybar walker zed
+sudo pacman -S --noconfirm git curl base-devel sqlite github-cli nano btop npm luarocks nodejs rsync ghostty hyprland waybar walker zed
 
 echo "Installing yay (AUR helper) if not present..."
 if ! command -v yay &>/dev/null; then
