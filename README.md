@@ -213,6 +213,13 @@ xcode-select --install
 - Homebrew is the primary package manager (no apt/dnf/pacman)
 - Some packages (like `gcc`) are skipped as they're provided by Xcode
 
+### Updating configs later
+Once your Mac is already set up, you don't need to re-run the full `setup.sh` (which would reinstall packages) just to pick up config changes. Instead, run:
+```bash
+./update_macos.sh [--headless]
+```
+This pulls the latest changes from the repo and re-syncs `config/` into `~/.config/`. Use `--headless` to skip the desktop-only configs (kitty, ghostty, hypr, waybar, walker, zed).
+
 ## 🤝 Contributing
 
 Feel free to open issues or pull requests to improve this setup!
