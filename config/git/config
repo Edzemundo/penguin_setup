@@ -6,7 +6,7 @@
 	ci = commit
 	st = status
 [init]
-	defaultBranch = master
+	defaultBranch = main
 [pull]
 	rebase = true 			 # Rebase (instead of merge) on pull
 [push]
@@ -26,5 +26,8 @@
 [rerere]
 	enabled = true           # Record and reuse conflict resolutions
 	autoupdate = true        # Apply stored conflict resolutions automatically
-[user]
-	name = esa
+
+# Identity and credential helper live here, written by setup.sh and never
+# tracked, so this file stays the same on every machine.
+[include]
+	path = config.local

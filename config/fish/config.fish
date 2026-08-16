@@ -1,44 +1,52 @@
-# CachyOS-specific config (only loaded on CachyOS)
+# CachyOS ships its own fish config; load it first if present.
 if test -f /usr/share/cachyos-fish-config/cachyos-config.fish
     source /usr/share/cachyos-fish-config/cachyos-config.fish
 end
 
-# Homebrew — detect platform and set up environment
-if test -d /opt/homebrew
-    # macOS Apple Silicon
-    eval (/opt/homebrew/bin/brew shellenv)
-else if test -d /usr/local/Homebrew
-    # macOS Intel
-    eval (/usr/local/bin/brew shellenv)
-else if test -x /home/linuxbrew/.linuxbrew/bin/brew
-    # Linux
-    eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)
+# Homebrew. One config for every platform, so detect the prefix at runtime
+# rather than shipping a per-OS file.
+for brew_prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew
+    if test -x $brew_prefix/bin/brew
+        eval ($brew_prefix/bin/brew shellenv)
+        break
+    end
 end
 
 if status is-interactive
-    alias ls="eza --color=always --long --git --icons=always"
-    alias lg="lazygit"
-    alias ld="lazydocker"
-    alias ff="fastfetch"
-    alias nv="nvim"
-    alias zed="zeditor"
+    # Every tool below is guarded. A config that assumes its tools exist
+    # throws errors on every prompt for the whole time between installing a
+    # machine and finishing the install -- and breaks the container tests.
 
-    function y
-        set tmp (mktemp -t "yazi-cwd.XXXXXX")
-        yazi $argv --cwd-file="$tmp"
-        if set cwd (command cat -- "$tmp"); and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
-            builtin cd -- "$cwd"
+    command -q eza && alias ls="eza --color=always --long --git --icons=always"
+    command -q lazygit && alias lg="lazygit"
+    command -q lazydocker && alias ld="lazydocker"
+    command -q fastfetch && alias ff="fastfetch"
+    command -q nvim && alias nv="nvim"
+
+    # The Zed CLI is `zeditor` on Linux and `zed` on macOS, where aliasing
+    # zed=zed would shadow the real binary with itself.
+    command -q zeditor && alias zed="zeditor"
+
+    # yazi, returning to whatever directory you quit in.
+    if command -q yazi
+        function y
+            set tmp (mktemp -t "yazi-cwd.XXXXXX")
+            yazi $argv --cwd-file="$tmp"
+            if set cwd (command cat -- "$tmp"); and [ -n "$cwd" ]; and [ "$cwd" != "$PWD" ]
+                builtin cd -- "$cwd"
+            end
+            rm -f -- "$tmp"
         end
-        rm -f -- "$tmp"
     end
 
-    eval (zellij setup --generate-auto-start fish | string collect)
+    command -q zellij && eval (zellij setup --generate-auto-start fish | string collect)
 
-    fzf --fish | source
-    zoxide init fish | source
+    command -q fzf && fzf --fish | source
+    command -q zoxide && zoxide init fish | source
+    command -q atuin && atuin init fish | source
 
-    theme_tokyonight night
+    # Installed by fisher; absent until fisher_sync has run once.
+    functions -q theme_tokyonight && theme_tokyonight night
 
-    fastfetch
-
+    command -q fastfetch && fastfetch
 end

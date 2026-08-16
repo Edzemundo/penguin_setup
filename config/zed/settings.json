@@ -7,25 +7,9 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-  "ssh_connections": [
-    {
-      "host": "msa5--jetson-2",
-      "username": "clockmaker",
-      "args": [],
-      "projects": [
-        {
-          "paths": [
-            "/home/clockmaker/sow60-polaris"
-          ]
-        },
-        {
-          "paths": [
-            "/home/clockmaker/sow60-polaris/notch-alignment/./"
-          ]
-        }
-      ]
-    }
-  ],
+  // ssh_connections is deliberately not tracked here -- it is per-machine
+  // state and would otherwise be published to a public repo and ping-pong
+  // between machines on every sync. Zed writes yours back in automatically.
   "restore_on_startup": "launchpad",
   "cli_default_open_behavior": "existing_window",
   "project_panel": {

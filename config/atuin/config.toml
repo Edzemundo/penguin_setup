@@ -1,0 +1,34 @@
+# atuin -- shell history with search, sync and stats.
+# https://docs.atuin.sh/configuration/config/
+#
+# The history database, encryption key and session token live alongside this
+# file and are excluded from sync (see EXCLUDES_atuin in packages.conf).
+# Nothing secret belongs in here.
+
+## Search the history of this machine only by default. Change to "global"
+## once you have run `atuin login` and want history from every machine.
+filter_mode = "host"
+
+## Up-arrow searches only this shell session's directory context, which is
+## usually what you want; ctrl-r still searches everything.
+filter_mode_shell_up_key_binding = "session"
+
+## Show newest matches first.
+search_mode = "fuzzy"
+
+## Full-screen search UI is disorienting in a multiplexer; keep it inline.
+style = "compact"
+inline_height = 20
+
+## Do not phone home for version checks.
+update_check = false
+
+## Sync is opt-in: it stays off until you run `atuin login`.
+auto_sync = false
+
+## Commands never worth recording.
+history_filter = [
+  "^\\s",           # any command typed with a leading space
+  "^atuin login",
+  "^atuin register",
+]

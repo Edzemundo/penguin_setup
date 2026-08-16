@@ -1,5 +1,7 @@
-# Dynamic theme colors
-config-file = ?"~/.config/omarchy/current/theme/ghostty.conf"
+# Machine-local overrides. The leading ? makes the include optional, so this
+# is a no-op when the file does not exist. Put anything platform- or
+# host-specific there rather than editing this file.
+config-file = ?"~/.config/ghostty/config.local"
 
 # Font
 font-family = "JetBrainsMonoNL Nerd Font"
@@ -12,7 +14,6 @@ window-padding-x = 14
 window-padding-y = 14
 confirm-close-surface = false
 resize-overlay = never
-gtk-toolbar-style = flat
 
 # Cursor styling
 cursor-style = "block"
@@ -33,5 +34,8 @@ keybind = super+control+shift+alt+arrow_right=resize_split:right,100
 # Slowdown mouse scrolling
 mouse-scroll-multiplier = 0.95
 
-# Fix general slowness on hyprland (https://github.com/ghostty-org/ghostty/discussions/3224)
-async-backend = epoll
+# GTK-only settings live in config.local on Linux, since ghostty on macOS
+# does not recognise them:
+#   gtk-toolbar-style = flat
+#   async-backend = epoll   # works around slow rendering under Wayland
+#                           # https://github.com/ghostty-org/ghostty/discussions/3224

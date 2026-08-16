@@ -1,196 +1,113 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# penguin_setup -- install and configure a development environment.
+#
+# Usage:
+#   ./setup.sh [options]
+#
+# Options:
+#   --headless        skip desktop application configs and packages
+#   --dry-run         show what would happen, change nothing
+#   --skip=a,b,c      skip steps: brew, aur, uv, upgrade
+#   --upgrade         also upgrade already-installed brew packages
+#   --yes             do not prompt
+#   -h, --help        this message
+#
+# Everything installed or synced is listed in packages.conf.
 
-# Function to display error messages
-error() {
-  echo -e "\e[91mError: $1\e[0m" >&2
-  exit 1
-}
+set -euo pipefail
 
-# Parse flags
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO"
+
+# Defaults, set before sourcing lib/ because the helpers read them.
 HEADLESS=false
-for arg in "$@"; do
-  [[ "$arg" == "--headless" ]] && HEADLESS=true
+DRY_RUN=false
+ASSUME_YES=false
+DO_UPGRADE=false
+SKIP=''
+ONLY=''
+RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
+TOTAL_CHANGED=0
+TOTAL_DELETED=0
+
+usage() { sed -n '3,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --headless)  HEADLESS=true ;;
+    --dry-run)   DRY_RUN=true ;;
+    --yes|-y)    ASSUME_YES=true ;;
+    --upgrade)   DO_UPGRADE=true ;;
+    --skip=*)    SKIP="${1#*=}" ;;
+    --skip)      shift; SKIP="${1:-}" ;;
+    -h|--help)   usage; exit 0 ;;
+    *)           printf 'unknown option: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
 done
 
-# Get username (first non-flag argument)
-username=""
-for arg in "$@"; do
-  [[ "$arg" == --* ]] && continue
-  username="$arg"
-  break
-done
+# shellcheck source=lib/common.sh
+. "$REPO/lib/common.sh"
+# shellcheck source=packages.conf
+. "$REPO/packages.conf"
+# shellcheck source=lib/bootstrap.sh
+. "$REPO/lib/bootstrap.sh"
+# shellcheck source=lib/packages.sh
+. "$REPO/lib/packages.sh"
+# shellcheck source=lib/config.sh
+. "$REPO/lib/config.sh"
+# shellcheck source=lib/shell.sh
+. "$REPO/lib/shell.sh"
 
-if [ -z "$username" ]; then
-  echo "No input provided. Please provide username: "
-  read username
-fi
+require_not_root
+check_manifest
+detect_system
+probe_rsync
 
-# Check if the user exists
-if ! id "$username" &>/dev/null; then
-  error "User '$username' does not exist."
-fi
-
-# Determine user home directory based on OS
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  USER_HOME="$HOME"
-  OS="macos"
-else
-  USER_HOME="/home/$username"
-  OS="linux"
-fi
-
-echo "Setting up for '$username'..."
-mkdir -p $USER_HOME/.config/
-
-# Function to detect OS and package manager
-detect_system() {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "macOS system detected"
-    OS="macos"
-    PM="brew"
-  elif command -v apt &>/dev/null; then
-    echo "Debian-based system detected"
-    OS="linux"
-    PM="apt"
-  elif command -v dnf &>/dev/null; then
-    echo "Fedora-based system detected"
-    OS="linux"
-    PM="dnf"
-  elif command -v pacman &>/dev/null; then
-    echo "Arch-based system detected"
-    OS="linux"
-    PM="pacman"
-  else
-    error "No supported package manager found"
-  fi
+install_configs() {
+  log "Installing configs"
+  local name
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    syncable "$name" pull && sync_dir "$name" pull
+  done <<EOF
+$(applicable_configs)
+EOF
+  $DRY_RUN || prune_backups
 }
 
-# Function to run setup scripts
-install() {
-  # Run OS-specific setup
-  if [ "$OS" = "macos" ]; then
-    echo "Installing Brew..."
-    ./brew_setup.sh "$username" || error "Failed to install Brew"
-
-    # brew_setup.sh runs in a child process, so re-add brew to PATH here
-    for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-      [ -x "$brew_bin" ] && eval "$("$brew_bin" shellenv)" && break
-    done
-
-    echo "Running macOS setup..."
-    ./macos_setup.sh "$username" || error "Failed to run macOS setup"
-  else
-    # Run Linux package manager specific setup
-    if [ "$PM" = "apt" ]; then
-      echo "Running apt setup..."
-      ./apt_setup.sh "$username" || error "Failed to run apt setup"
-    elif [ "$PM" = "dnf" ]; then
-      echo "Running dnf setup..."
-      ./dnf_setup.sh "$username" || error "Failed to run dnf setup"
-    elif [ "$PM" = "pacman" ]; then
-      echo "Running pacman setup..."
-      ./pacman_setup.sh "$username" || error "Failed to run pacman setup"
-    fi
-
-    echo "Installing Brew..."
-    ./brew_setup.sh "$username" || error "Failed to install Brew"
-  fi
-
-  echo "Installing Fish shell..."
-  ./fish_setup.sh || error "Failed to install Fish"
-
-  echo "Installation complete"
-}
-
-config() {
-  echo "Copying config files..."
-
-  BASE_DIRS=("fish" "nvim" "yazi" "zellij" "btop" "fastfetch" "git")
-  DESKTOP_DIRS=("kitty" "ghostty" "hypr" "waybar" "walker" "zed")
-
-  if [ "$HEADLESS" = true ]; then
-    echo "Headless mode: skipping desktop configs"
-    CONFIG_DIRS=("${BASE_DIRS[@]}")
-  else
-    CONFIG_DIRS=("${BASE_DIRS[@]}" "${DESKTOP_DIRS[@]}")
-  fi
-
-  for dir in "${CONFIG_DIRS[@]}"; do
-    if [ -d "./config/$dir" ]; then
-      # Use sudo only on Linux, not needed on macOS for own files
-      if [ "$OS" = "macos" ]; then
-        rm -rf $USER_HOME/.config/$dir
-        mkdir -p $USER_HOME/.config/$dir
-        rsync -a --exclude='.git' ./config/$dir/ $USER_HOME/.config/$dir/
-      else
-        sudo rm -rf $USER_HOME/.config/$dir
-        sudo mkdir -p $USER_HOME/.config/$dir
-        sudo rsync -a --exclude='.git' ./config/$dir/ $USER_HOME/.config/$dir/
-      fi
-    else
-      echo "Warning: ./config/$dir not found, skipping"
-    fi
-  done
-
-  # Fix ownership on Linux only
-  if [ "$OS" = "linux" ]; then
-    echo "Changing ownership of config files..."
-    sudo chown -R $username:$username $USER_HOME/.config
-  fi
-}
-
-fisher_setup() {
-  local fish_bin
-  fish_bin=$(command -v fish 2>/dev/null || echo "/usr/bin/fish")
-  local plugins_file="$USER_HOME/.config/fish/fish_plugins"
-
-  if [ ! -f "$plugins_file" ]; then
-    echo "Warning: fish_plugins not found, skipping fisher install"
-    return
-  fi
-
-  echo "Installing fisher and fish plugins..."
-  if [ "$OS" = "macos" ]; then
-    "$fish_bin" -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
-      || echo "Warning: fisher bootstrap failed"
-    "$fish_bin" -c "fisher install < $plugins_file" \
-      || echo "Warning: fisher plugin install failed"
-  else
-    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
-      "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher" \
-      || echo "Warning: fisher bootstrap failed"
-    sudo -u "$username" env HOME="$USER_HOME" "$fish_bin" -c \
-      "fisher install < $plugins_file" \
-      || echo "Warning: fisher plugin install failed"
-  fi
-}
-
-# Main script execution
 main() {
-  echo "Running setup script..."
-  echo "-----------------------------"
+  local profile
+  profile="$($HEADLESS && printf headless || printf desktop)"
 
-  # Detect OS and package manager
-  detect_system
+  printf '\n'
+  log "penguin_setup"
+  info "system:   $OS / $PM"
+  info "profile:  $profile"
+  [ -n "$SKIP" ] && info "skipping: $SKIP"
+  $DRY_RUN && info "mode:     dry run, nothing will change"
+  printf '\n'
 
-  # Run install script
-  install
+  update_indexes
+  bootstrap
+  # Homebrew may have just been installed; get it onto PATH for what follows.
+  load_brew_env || true
+  install_packages
+  install_configs
+  setup_shell
+  write_git_local
 
-  # Copy config files
-  config
-
-  # Install fisher and fish plugins (must run after config is copied)
-  fisher_setup
-
-  echo ""
-  if [ "$OS" = "macos" ]; then
-    echo "Setup complete! Please restart your terminal or run: exec fish"
-    echo "To set Fish as default shell, run: chsh -s $(which fish)"
-  else
-    echo "PLEASE RESTART COMPUTER TO COMPLETE SETUP."
+  printf '\n'
+  if $DRY_RUN; then
+    ok "Dry run complete -- re-run without --dry-run to apply"
+    return 0
   fi
-  echo ""
+
+  ok "Setup complete"
+  info "Start fish with:  exec fish"
+  info "Make it default:  chsh -s $(command -v fish 2>/dev/null || printf '\$(command -v fish)')"
+  printf '\n'
 }
 
-# Run the script
 main
