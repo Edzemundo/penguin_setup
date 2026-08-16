@@ -1,19 +1,27 @@
+# Ghostty terminal configuration
+# Installed to ~/.config/ghostty/config
+# Reference: https://ghostty.org/docs/config/reference
+#
+# Managed by penguin_setup: this file is overwritten by `sync.sh pull`.
+# Ghostty reloads config with cmd/ctrl+shift+comma.
+
 # Machine-local overrides. The leading ? makes the include optional, so this
 # is a no-op when the file does not exist. Put anything platform- or
-# host-specific there rather than editing this file.
+# host-specific there rather than editing this file -- it survives a pull.
 config-file = ?"~/.config/ghostty/config.local"
 
-# Font
+# Font. The NL variant is "no ligatures"; the Nerd Font build supplies the
+# glyphs that eza, lazygit and fastfetch draw with.
 font-family = "JetBrainsMonoNL Nerd Font"
 font-style = Regular
 font-size = 9
 
 # Window
-window-theme = ghostty
+window-theme = ghostty          # follow ghostty's own light/dark, not the OS
 window-padding-x = 14
 window-padding-y = 14
-confirm-close-surface = false
-resize-overlay = never
+confirm-close-surface = false   # no prompt when closing a split or tab
+resize-overlay = never          # hide the size indicator while dragging
 
 # Cursor styling
 cursor-style = "block"

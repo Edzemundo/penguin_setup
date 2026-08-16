@@ -4,11 +4,27 @@
 # setup.sh has returned 0.
 #
 # Assumes a --headless install: desktop configs must be absent.
+#
+# ---------------------------------------------------------------------------
+# An exit code of 0 from setup.sh proves very little -- the previous version
+# exited 0 while copying no configs at all. These assertions check the things
+# that actually went wrong historically:
+#
+#   - configs landing at all (the ./config/$dir path bug)
+#   - desktop configs NOT landing under --headless (Hyprland on a Mac)
+#   - nothing root-owned (the sudo rsync + chown -R pattern)
+#   - fish starting cleanly (the Omarchy fastfetch config erroring every prompt)
+#   - dry-run really changing nothing
+#   - a second run succeeding (idempotency)
+#
+# Note `set -uo pipefail` without -e: a failing assertion must record itself
+# and let the rest run, so one failure still reports the full picture.
+# ---------------------------------------------------------------------------
 
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO"
+cd "$REPO" || exit 1
 
 FAILED=0
 FAST=false
@@ -71,6 +87,8 @@ fi
 # tool which is not installed. Under --fast the brew tools are absent by
 # design, which is exactly the condition the command -q guards exist for.
 
+# -l login, -i interactive: forces fish to read config.fish exactly as it
+# would for a real user, so a missing tool or bad init line shows up here.
 out="$(fish -lic 'exit' 2>&1)"
 if printf '%s' "$out" | grep -qiE 'command not found|unknown command|^fish:.*error'; then
   fail "fish starts without errors"
@@ -95,8 +113,9 @@ check "git config include resolves" sh -c \
 
 # --- dry run changes nothing -----------------------------------------------
 
+# Anything modified after the sentinel was touched by the dry run.
 sentinel="$(mktemp)"
-sleep 1
+sleep 1   # filesystem timestamp granularity can be a whole second
 ./sync.sh pull --dry-run --headless >/dev/null 2>&1
 if [ -z "$(find "$HOME/.config" -newer "$sentinel" -print -quit 2>/dev/null)" ]; then
   pass "sync.sh pull --dry-run changed nothing"

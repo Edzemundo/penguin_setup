@@ -15,9 +15,18 @@ FROM ${BASE_IMAGE}
 # Non-interactive apt, ignored elsewhere.
 ENV DEBIAN_FRONTEND=noninteractive
 
+# pacman 7 sandboxes itself with seccomp, which fails under qemu emulation
+# (Arch publishes x86_64 images only, so it is emulated on Apple Silicon).
+# DisableSandbox is written into pacman.conf below, before pacman is first
+# used, so it applies to setup.sh's own pacman calls too. Test images only.
+
+# Note the deliberate absence of && between the update and install steps:
+# `set -e` is suppressed inside an && list, so chaining them would let a failed
+# package-database refresh pass silently and produce an image with nothing
+# installed. Separate statements let set -e do its job.
 RUN set -eux; \
     if   command -v apt-get >/dev/null 2>&1; then \
-        apt-get update && \
+        apt-get update; \
         apt-get install -y --no-install-recommends \
             sudo passwd ca-certificates curl git rsync procps file locales; \
         rm -rf /var/lib/apt/lists/*; \
@@ -26,7 +35,8 @@ RUN set -eux; \
             sudo passwd ca-certificates curl git rsync procps-ng file findutils; \
         dnf clean all; \
     elif command -v pacman >/dev/null 2>&1; then \
-        pacman -Syu --noconfirm && \
+        printf 'DisableSandbox\n' >> /etc/pacman.conf; \
+        pacman -Syu --noconfirm; \
         pacman -S --needed --noconfirm \
             sudo curl git rsync which base-devel; \
         pacman -Scc --noconfirm; \
@@ -43,6 +53,7 @@ RUN set -eux; \
     getent group wheel >/dev/null || groupadd wheel; \
     getent group sudo  >/dev/null || groupadd sudo; \
     useradd -m -s /bin/bash -G wheel,sudo tester; \
+    mkdir -p /etc/sudoers.d; \
     printf '%%wheel ALL=(ALL) NOPASSWD: ALL\n%%sudo ALL=(ALL) NOPASSWD: ALL\n' \
         > /etc/sudoers.d/99-tester; \
     chmod 0440 /etc/sudoers.d/99-tester; \

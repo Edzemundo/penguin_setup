@@ -52,7 +52,7 @@ used to leave root-owned files in `~/.config`.
 |---|---|
 | `--headless` | Skip desktop application configs and packages |
 | `--dry-run` | Print what would change; change nothing |
-| `--skip=brew,aur,uv,upgrade` | Skip named steps |
+| `--skip=brew,aur,uv,upgrade,index` | Skip named steps |
 | `--upgrade` | Also upgrade already-installed brew packages |
 | `--yes` | Never prompt |
 

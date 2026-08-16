@@ -14,6 +14,22 @@
 #
 # The repo is bind-mounted read-only and copied inside the container, so a
 # test run can never modify your working tree.
+#
+# ---------------------------------------------------------------------------
+# Why one Dockerfile and a bind mount
+#
+# One parameterised image, not three: the previous version kept Debian and
+# Fedora in a single file with the Fedora half commented out, and it had
+# clearly not been run in a long time. Parallel copies rot; a detecting
+# bootstrap does not.
+#
+# Bind-mount rather than COPY: COPY invalidates the layer cache on every
+# script edit, so each iteration became a full rebuild. Mounting read-only and
+# copying inside means the image is built once and edits cost nothing.
+#
+# macOS cannot be containerised, so this covers the Linux paths only, and
+# --headless only -- there is no desktop session in a container.
+# ---------------------------------------------------------------------------
 
 set -euo pipefail
 
@@ -58,8 +74,21 @@ image_for() {
   esac
 }
 
+# Arch publishes x86_64 images only, so on an arm64 host (Apple Silicon) it
+# has to run under emulation. Everything else uses the native architecture.
+# Emulated runs work but are several times slower.
+platform_for() {
+  if [ "$1" = arch ] && [ "$(uname -m)" != "x86_64" ]; then
+    printf 'linux/amd64'
+  fi
+}
+
 # ---------------------------------------------------------------------------
 
+# lint
+# Runs shellcheck from a container, so no linter has to be installed locally.
+# -x follows `source` directives into lib/, which is the only way it can check
+# the sourced files in context.
 lint() {
   echo "==> shellcheck"
   docker run --rm -v "$REPO:/mnt:ro" -w /mnt koalaman/shellcheck-alpine:stable \
@@ -68,19 +97,32 @@ lint() {
 }
 
 build() {
-  local distro="$1" base
+  local distro="$1" base platform
   base="$(image_for "$distro")"
-  echo "==> building penguin-test:$distro  ($base)"
+  platform="$(platform_for "$distro")"
+
+  if [ -n "$platform" ]; then
+    echo "==> building penguin-test:$distro  ($base, emulated $platform)"
+  else
+    echo "==> building penguin-test:$distro  ($base)"
+  fi
+
+  # shellcheck disable=SC2086  # platform flag is empty when not needed
   docker build \
+    ${platform:+--platform "$platform"} \
     --build-arg "BASE_IMAGE=$base" \
     -f test/Dockerfile \
     -t "penguin-test:$distro" \
     . >/dev/null
 }
 
+# run_one <distro>
+# Builds the image, runs setup.sh inside it, then runs the smoke tests.
+# Returns the container's exit status.
 run_one() {
-  local distro="$1"
+  local distro="$1" platform
   build "$distro"
+  platform="$(platform_for "$distro")"
 
   local rm_flag=--rm
   $KEEP && rm_flag=''
@@ -91,21 +133,29 @@ run_one() {
 
   if $SHELL_MODE; then
     echo "==> shell in $distro (repo at ~/penguin_setup)"
-    # shellcheck disable=SC2086  # rm_flag is intentionally unquoted
-    exec docker run $rm_flag -it -v "$REPO:/mnt:ro" "penguin-test:$distro" \
+    # shellcheck disable=SC2086  # rm_flag and platform are intentionally unquoted
+    exec docker run $rm_flag ${platform:+--platform "$platform"} \
+      -it -v "$REPO:/mnt:ro" "penguin-test:$distro" \
       bash -c "$prelude && exec bash"
   fi
 
+  # --headless because a container has no desktop, and --yes because there is
+  # nobody to answer a prompt.
   local setup_args='--headless --yes'
   local smoke_args=''
   if $FAST; then
+    # Homebrew on Linux builds from source whenever there is no bottle, and
+    # dominates the runtime. Skipping it still exercises everything this
+    # rewrite actually changed: the manifest, config sync, excludes, dry-run
+    # inertness, fish, fisher and idempotency.
     setup_args="$setup_args --skip=brew,aur,uv,upgrade"
     smoke_args='--fast'
   fi
 
   echo "==> running setup in $distro ($([ "$FAST" = true ] && echo fast || echo full))"
   # shellcheck disable=SC2086
-  docker run $rm_flag -v "$REPO:/mnt:ro" "penguin-test:$distro" bash -c "
+  docker run $rm_flag ${platform:+--platform "$platform"} \
+    -v "$REPO:/mnt:ro" "penguin-test:$distro" bash -c "
     set -e
     $prelude
     ./setup.sh $setup_args

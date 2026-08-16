@@ -18,6 +18,21 @@
 # ~/.local/state/penguin_setup/backups/. push refuses to run unless config/ is
 # clean in git, so `git checkout -- config/` is always an undo. Neither one
 # commits anything.
+#
+# ---------------------------------------------------------------------------
+# The two directions are not symmetric, because the risks are not symmetric.
+#
+#   pull  overwrites your machine from the repo. The repo is in git, so the
+#         thing at risk is local state -- hence the backup directory.
+#   push  overwrites the repo from your machine. The thing at risk is
+#         committed work, so git itself is the safety net: refuse to run on a
+#         dirty config/, and never commit, so `git checkout -- config/` and
+#         `git diff` both remain meaningful.
+#
+# Which directories move, and which files within them are left alone, comes
+# entirely from packages.conf. The transfer logic is shared with setup.sh via
+# lib/config.sh -- `setup.sh` config step and `sync.sh pull` are the same code.
+# ---------------------------------------------------------------------------
 
 set -euo pipefail
 
@@ -34,9 +49,12 @@ RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
 TOTAL_CHANGED=0
 TOTAL_DELETED=0
 
-# How many deletions in one run before we stop and ask.
+# How many deletions in one run before we stop and ask. A handful is routine;
+# dozens usually means a config was removed locally or --only was forgotten.
 DELETE_THRESHOLD=10
 
+# Print the comment block at the top of this file as help, so the two cannot
+# drift apart.
 usage() { sed -n '3,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 while [ "$#" -gt 0 ]; do
@@ -81,9 +99,13 @@ fi
 # push guards
 # ---------------------------------------------------------------------------
 
-# Require a clean config/ in git before overwriting it from the device. This
-# is what makes the operation reversible: whatever push writes can be undone
-# with `git checkout -- config/`.
+# require_clean_repo
+# Exits unless config/ has no staged, unstaged or untracked changes.
+#
+# The single most important guard in the tool. It is what makes push
+# reversible: if config/ was clean beforehand, then whatever push writes can
+# be undone in full with `git checkout -- config/`. Allow a dirty tree and
+# that guarantee is gone, along with any uncommitted edits.
 require_clean_repo() {
   git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 \
     || die "not a git repository -- push needs git as its undo mechanism"
@@ -103,7 +125,13 @@ require_clean_repo() {
   fi
 }
 
-# Preview the whole push and stop if it would delete a surprising amount.
+# check_deletions
+# Dry-runs the whole push first and asks for confirmation if it would remove
+# more than DELETE_THRESHOLD files.
+#
+# Deletions are the one genuinely destructive part of a push, and they are
+# legitimate -- removing a file locally should propagate. The point is to make
+# a large number of them a conscious decision rather than a surprise.
 check_deletions() {
   local name total=0 n
   while IFS= read -r name; do
@@ -135,12 +163,16 @@ main() {
   if [ "$MODE" = pull ]; then
     info "repo/config  ->  ~/.config"
   else
+    # shellcheck disable=SC2088  # display text, not a path to expand
     info "~/.config    ->  repo/config"
   fi
   info "configs:  $count$([ -n "$ONLY" ] && printf ' (--only %s)' "$ONLY")"
   $DRY_RUN && info "mode:     dry run, nothing will change"
   printf '\n'
 
+  # Guards apply to a real push only. A dry run writes nothing, so demanding a
+  # clean repo before you can even preview would be backwards -- previewing is
+  # exactly what you want to do while the tree is dirty.
   if [ "$MODE" = push ] && ! $DRY_RUN; then
     require_clean_repo
     check_deletions

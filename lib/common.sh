@@ -1,15 +1,31 @@
 # shellcheck shell=bash
 #
-# Shared helpers: output, system detection, and the small set of primitives
-# that actually change the machine.
+# lib/common.sh -- shared helpers: output, system detection, and the small set
+# of primitives that actually change the machine.
+#
+# Sourced by setup.sh and sync.sh before any other lib/ file. It defines no
+# policy of its own; it is the vocabulary the other modules are written in.
+#
+# Globals it expects the caller to have set before sourcing:
+#   DRY_RUN     true|false   run() and friends print instead of acting
+#   ASSUME_YES  true|false   confirm() returns success without asking
+#   SKIP        comma list   consulted by skipped()
+#
+# Globals it sets:
+#   OS          macos|linux            (detect_system)
+#   PM          brew|apt|dnf|pacman    (detect_system)
+#   _c_*        terminal colour escapes, empty when not a tty
 #
 # Targets bash 3.2 -- that is what /bin/bash is on macOS, and it runs before
-# Homebrew exists. So no associative arrays, no mapfile, no ${var,,}.
+# Homebrew exists. So no associative arrays, no mapfile, no ${var,,}, and
+# empty arrays must be expanded as ${arr[@]+"${arr[@]}"} under set -u.
 
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
 
+# Colour only when stdout is a terminal, so redirected output and CI logs stay
+# clean. NO_COLOR is the de-facto standard opt-out (https://no-color.org).
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   _c_red=$'\033[31m'; _c_yellow=$'\033[33m'; _c_green=$'\033[32m'
   _c_blue=$'\033[34m'; _c_dim=$'\033[2m'; _c_off=$'\033[0m'
@@ -17,6 +33,15 @@ else
   _c_red=''; _c_yellow=''; _c_green=''; _c_blue=''; _c_dim=''; _c_off=''
 fi
 
+# The output vocabulary, roughly in order of importance. Warnings and errors
+# go to stderr so a caller can filter them out of normal progress reporting.
+#
+#   log   "==> Heading"    a top-level step
+#   info  "    detail"     a detail under the current step
+#   dim   "    detail"     the same, de-emphasised (skips, no-ops)
+#   ok    "  ✓ result"     something succeeded
+#   warn  "  ! problem"    recoverable; execution continues        -> stderr
+#   die   "error: fatal"   unrecoverable; exits 1                  -> stderr
 log()   { printf '%s==>%s %s\n' "$_c_blue" "$_c_off" "$*"; }
 info()  { printf '    %s\n' "$*"; }
 dim()   { printf '%s    %s%s\n' "$_c_dim" "$*" "$_c_off"; }
@@ -24,7 +49,13 @@ ok()    { printf '%s  ✓%s %s\n' "$_c_green" "$_c_off" "$*"; }
 warn()  { printf '%s  ! %s%s\n' "$_c_yellow" "$*" "$_c_off" >&2; }
 die()   { printf '%serror:%s %s\n' "$_c_red" "$_c_off" "$*" >&2; exit 1; }
 
-# Ask for confirmation. Auto-yes under --yes or when stdin is not a terminal.
+# confirm <prompt>
+# Returns 0 to proceed, 1 to abort.
+#
+# Answers itself under --yes, and also when stdin is not a terminal -- a
+# container or a pipe cannot answer, and blocking forever there is worse than
+# proceeding. Callers that must not proceed unattended should check the
+# situation themselves rather than relying on this.
 confirm() {
   $ASSUME_YES && return 0
   [ -t 0 ] || return 0
@@ -34,8 +65,12 @@ confirm() {
   case "$reply" in [yY] | [yY][eE][sS]) return 0 ;; *) return 1 ;; esac
 }
 
-# Run a command, or just print it under --dry-run.
-# Only works for plain commands -- no pipes or redirects.
+# run <command> [args...]
+# Executes the command, or prints it and returns 0 under --dry-run.
+#
+# Only works for plain commands: pipes, redirects and shell builtins cannot be
+# passed through "$@". Anything with a pipeline handles --dry-run itself --
+# see fetch_and_run below, or rsync_dir in lib/config.sh.
 run() {
   if $DRY_RUN; then
     printf '%s    [dry-run] %s%s\n' "$_c_dim" "$*" "$_c_off"
@@ -48,7 +83,14 @@ run() {
 # System detection
 # ---------------------------------------------------------------------------
 
-# Sets OS (macos|linux) and PM (brew|apt|dnf|pacman). Called once.
+# detect_system
+# Sets OS and PM. Call once, early; everything else branches on these two.
+#
+# macOS has no native package manager, so PM=brew there and the native-install
+# path is simply skipped. On Linux the first manager found wins -- order
+# matters only on systems carrying more than one, where the native one is
+# listed first.
+# shellcheck disable=SC2034  # both are read by the other lib/ files
 detect_system() {
   case "${OSTYPE:-}" in
     darwin*)
@@ -66,16 +108,25 @@ detect_system() {
   esac
 }
 
-# Refuse to run as root. Everything here belongs to one user; the few commands
-# that genuinely need elevation call sudo themselves. Running the whole script
-# as root writes root-owned files into a user's ~/.config.
+# require_not_root
+# Exits unless running as an unprivileged user.
+#
+# Everything here belongs to one user; the few commands that genuinely need
+# elevation call sudo themselves. Running the whole script as root writes
+# root-owned files into a user's ~/.config, which is what the previous version
+# did and then papered over with a chown -R afterwards. Homebrew and makepkg
+# both refuse to run as root anyway.
 require_not_root() {
   [ "$(id -u)" -ne 0 ] || die "do not run as root -- run as your normal user; sudo is called only where needed
 
   If you used the curl one-liner with sudo, re-run it without."
 }
 
-# True when a step was named in --skip=a,b,c
+# skipped <step>
+# True when the step was named in --skip=a,b,c
+#
+# The comma padding on both sides makes it an exact whole-word match, so
+# --skip=brewery does not match the "brew" step.
 skipped() {
   case ",$SKIP," in *",$1,"*) return 0 ;; *) return 1 ;; esac
 }
@@ -87,7 +138,11 @@ skipped() {
 _MARKER='# >>> penguin_setup >>>'
 
 # append_line_once <file> <line>
-# Tags the block so it can be found and removed later.
+# Appends the line unless it is already present verbatim.
+#
+# grep -qxF: exact whole-line, fixed-string match, so a line containing shell
+# metacharacters is not treated as a pattern. The marker comments make the
+# block greppable and easy to remove by hand later.
 append_line_once() {
   local file="$1" line="$2"
   if [ -f "$file" ] && grep -qxF "$line" "$file"; then
@@ -107,8 +162,12 @@ append_line_once() {
 }
 
 # symlink <target> <linkname>
-# -f -n so it also replaces an existing or dangling symlink. Plain [ -e ] is
-# false for a dangling link, which is how the old code silently failed.
+# Creates or repoints a symlink; no-op when it already points at the target.
+#
+# ln -sfn, never `[ ! -e "$link" ] && ln -s ...`: -e follows the link and is
+# false for a *dangling* symlink, so the guard passes, ln runs, and then fails
+# because the name already exists. -n stops ln descending into a link that
+# points at a directory.
 symlink() {
   local target="$1" link="$2"
   if [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ]; then
@@ -118,8 +177,12 @@ symlink() {
 }
 
 # fetch_and_run <url> <interpreter>
-# Downloads to a temp file first. Piping curl straight into a shell means an
-# HTTP error page gets executed; -f plus a size check prevents that.
+# Downloads a script, verifies it is non-empty, then executes it.
+#
+# Deliberately not `curl ... | sh`: without -f, curl hands the body of an HTTP
+# error page to the interpreter and a 404 becomes executed shell. Downloading
+# first also means a truncated transfer is caught by the size check rather
+# than half-executed. The RETURN trap cleans up on every exit path.
 fetch_and_run() {
   local url="$1" interp="$2" tmp
   if $DRY_RUN; then
@@ -135,9 +198,13 @@ fetch_and_run() {
   "$interp" "$tmp"
 }
 
-# Guard against a typo'd array name in packages.conf silently reading as empty.
-# declare -p, not ${x+set}: the latter reports a legitimately empty array
-# (BREW_CASKS=()) as missing, because it tests element 0 rather than the name.
+# require_array <name>
+# Exits if no array by that name was defined in packages.conf.
+#
+# Guards against a typo silently reading as empty under set -u, which would
+# install nothing and report success. declare -p, not ${x+set}: the latter
+# tests element 0, so it reports a legitimately empty array (BREW_CASKS=())
+# as missing.
 require_array() {
   declare -p "$1" >/dev/null 2>&1 \
     || die "packages.conf: array '$1' is not defined (typo?)"

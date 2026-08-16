@@ -1,4 +1,26 @@
+# fisher plugin list -- one plugin per line, "owner/repo".
+#
+# Installed to ~/.config/fish/fish_plugins and applied by lib/shell.sh, which
+# runs `fisher update` only when this file's checksum changes.
+#
+# The plugins themselves land in ~/.config/fish/{functions,completions,conf.d}/
+# which are excluded from sync (EXCLUDES_fish in packages.conf) -- so the repo
+# tracks the list, not the installed code.
+#
+# Add a plugin by adding a line here and re-running ./setup.sh. Removing a
+# line uninstalls it on the next run, because fisher treats this file as the
+# desired state.
+
+# fisher itself -- the plugin manager, managed as a plugin.
 jorgebucaran/fisher
+
+# Tokyo Night theme, providing the theme_tokyonight function that
+# config.fish calls at startup to match nvim and Zed.
 axkirillov/tokyonight-fish
+
+# fzf key bindings: ctrl-r history, ctrl-alt-f files, ctrl-alt-l git log, etc.
+# Distinct from the `fzf --fish` integration, which only does completions.
 patrickf1/fzf.fish
+
+# nvm for fish, for per-project Node versions.
 jorgebucaran/nvm.fish

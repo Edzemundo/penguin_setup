@@ -1,12 +1,34 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2154  # colour vars are defined in lib/common.sh
 #
-# Moving config directories between the repo and ~/.config, in both
-# directions, without losing anything.
+# lib/config.sh -- moving config directories between the repo and ~/.config,
+# in both directions, without losing anything.
+#
+# This is the module where the safety properties live, so the two invariants
+# worth keeping in mind while editing:
+#
+#   1. Excluded paths are protected on BOTH ends. rsync will not delete a file
+#      it was told to exclude, which is the only reason --delete is safe here.
+#      Never add --delete-excluded: it inverts this and would destroy exactly
+#      the machine-local state the excludes exist to protect (fisher plugins,
+#      atuin's history database, nvim's lockfile).
+#   2. Nothing is deleted without a way back. pull writes replaced files to a
+#      timestamped backup directory; push refuses to run unless config/ is
+#      clean in git, so `git checkout -- config/` is always the undo.
+#
+# Globals read: REPO, HOME, OS, HEADLESS, ONLY, DRY_RUN, RUN_STAMP, CONFIGS,
+#               SYNC_EXCLUDES_GLOBAL, EXCLUDES_<name>
+# Globals written: TOTAL_CHANGED, TOTAL_DELETED, RSYNC_CHMOD_OK
 
 # config_name <entry>   ->  "kitty" from "kitty:desktop"
 config_name() { printf '%s' "${1%%:*}"; }
 
-# config_applies <entry>  ->  0 if this host should have it
+# config_applies <entry>  ->  0 if this host should have it, 1 otherwise
+#
+# Entries are "name" or "name:tag,tag". All tags must match. An unknown tag
+# warns rather than failing, so a newer packages.conf degrades to installing
+# too much rather than refusing to run.
+#
 # Reads HEADLESS and OS from the caller.
 config_applies() {
   local tags="${1#*:}"
@@ -25,9 +47,17 @@ config_applies() {
   return 0
 }
 
-# excludes_for <name>  ->  one rsync filter pattern per line
-# Global patterns first, then any EXCLUDES_<name> array. Emitted on stdout and
-# fed to rsync via --exclude-from=- so an empty list needs no special casing.
+# excludes_for <name>  ->  one rsync filter pattern per line on stdout
+#
+# Global patterns first, then any EXCLUDES_<name> array. Two bash 3.2 details:
+#
+#   ref="EXCLUDES_$1[@]" plus ${!ref} is indirect expansion of an array, which
+#   is how you look up a variable by computed name without declare -A.
+#   ${!ref+"${!ref}"} yields nothing at all when no such array exists, instead
+#   of erroring under set -u -- most configs have no per-directory excludes.
+#
+# Emitted on stdout and piped to rsync's --exclude-from=- rather than built
+# into an argv array, which sidesteps empty-array expansion entirely.
 excludes_for() {
   local pattern ref="EXCLUDES_$1[@]"
   for pattern in ${SYNC_EXCLUDES_GLOBAL[@]+"${SYNC_EXCLUDES_GLOBAL[@]}"}; do
@@ -38,8 +68,11 @@ excludes_for() {
   done
 }
 
-# The config names that apply to this host, one per line.
-# Honours --only by matching the bare name.
+# applicable_configs  ->  the config names for this host, one per line
+#
+# Filters CONFIGS by tag and by --only. Callers read it with a here-document
+# rather than a pipe, so the loop body runs in the current shell and can
+# update the TOTAL_* counters.
 applicable_configs() {
   local entry name
   for entry in "${CONFIGS[@]}"; do
@@ -81,14 +114,21 @@ probe_rsync() {
   rm -rf "$d"
 }
 
-# Where replaced files go on pull. Created lazily, so a no-op pull leaves
-# nothing behind.
+# backup_root  ->  absolute path for this run's pull backups
+#
+# One directory per invocation (RUN_STAMP is set once at startup), so a single
+# pull's replaced files stay together. rsync creates it lazily, which is why a
+# no-op pull leaves no empty directory behind.
 backup_root() {
   printf '%s/penguin_setup/backups/%s' \
     "${XDG_STATE_HOME:-$HOME/.local/state}" "$RUN_STAMP"
 }
 
-# syncable <name> <mode>  ->  0 if there is something to sync
+# syncable <name> <mode>  ->  0 if there is something worth syncing
+#
+# Warns and returns 1 rather than dying: one missing config should not abort
+# the other nine. The empty-directory check on push is the important one --
+# see the comment inline.
 syncable() {
   local name="$1" mode="$2"
   case "$mode" in
@@ -115,7 +155,18 @@ syncable() {
 }
 
 # rsync_dir <name> <pull|push> <dry:true|false>
-# Writes rsync's itemised output to stdout.
+# Writes rsync's itemised output to stdout. The single place rsync is invoked.
+#
+# The flag choices differ by direction and both are deliberate:
+#
+#   pull  -rlpt  keep permissions, since the repo's modes are the intended
+#                ones on disk. No -og: writing owner/group is what forced the
+#                old code to chown -R afterwards.
+#   push  -rlt --no-perms [--chmod]  drop permissions instead, because git
+#                records only the executable bit. Normalising modes stops a
+#                local umask showing up as a permission-only diff.
+#
+# Never -a. It expands to -rlptgoD, quietly pulling in the -og this avoids.
 rsync_dir() {
   local name="$1" mode="$2" dry="$3"
   local src dst
@@ -135,6 +186,7 @@ rsync_dir() {
     # does not record anyway. --chmod, where supported, normalises modes so a
     # local umask quirk does not surface as a permission-only diff.
     opts=( -rlt --delete --no-perms )
+    # shellcheck disable=SC2054  # the comma belongs to rsync's --chmod syntax
     $RSYNC_CHMOD_OK && opts=( "${opts[@]}" --chmod=F644,D755 )
     [ "$dry" = true ] || mkdir -p "$dst"
   fi
@@ -145,13 +197,18 @@ rsync_dir() {
     | rsync "${opts[@]}" --exclude-from=- --itemize-changes "$src" "$dst"
 }
 
-# count_deletions <name> <mode>  ->  prints how many files a real run would remove
+# count_deletions <name> <mode>  ->  how many files a real run would remove
+#
+# Always a dry run, so it is safe to call before deciding whether to proceed.
+# `|| true` because grep -c exits 1 when the count is zero, which under set -e
+# would abort the very check meant to prevent surprises.
 count_deletions() {
   rsync_dir "$1" "$2" true | grep -c '^\*deleting' || true
 }
 
 # sync_dir <name> <pull|push>
-# Runs the transfer and reports it. Adds to TOTAL_CHANGED / TOTAL_DELETED.
+# Runs one directory's transfer and reports it.
+# Adds to TOTAL_CHANGED / TOTAL_DELETED.
 sync_dir() {
   local name="$1" mode="$2" out
   out="$(mktemp)" || die "mktemp failed"
@@ -167,8 +224,16 @@ sync_dir() {
   rm -f "$out"
 }
 
-# Summarise one directory's itemised output, listing deletions in full since
-# those are the changes actually worth reading.
+# report_changes <name>   (itemised rsync output on stdin)
+# Summarises one directory, listing deletions in full since those are the
+# changes actually worth reading. Updates TOTAL_CHANGED and TOTAL_DELETED.
+#
+# rsync's itemised format is an 11-character code then the path:
+#   *deleting  path     removed from the destination
+#   >f.st....  path     transferred (> received, < sent, c created, h hardlink)
+# Matching on the first character is enough to tell them apart.
+#
+# Must be fed by redirect, never a pipe -- see sync_dir.
 report_changes() {
   local name="$1" line file changed=0 deleted=0
   while IFS= read -r line; do
@@ -197,12 +262,18 @@ report_changes() {
   TOTAL_DELETED=$((TOTAL_DELETED + deleted))
 }
 
-# Keep the most recent backup runs, drop older ones.
+# prune_backups
+# Keeps the five most recent backup runs and removes older ones, so the state
+# directory does not grow without bound.
+#
+# ls -1dt sorts newest first; tail -n +6 selects everything past the fifth.
 prune_backups() {
   local root keep=5 old
   root="$(dirname "$(backup_root)")"
   [ -d "$root" ] || return 0
-  # Sanity-check the path before deleting anything beneath it.
+  # Sanity-check the path before deleting anything beneath it: this function
+  # runs rm -rf in a loop, and a malformed XDG_STATE_HOME must not turn that
+  # into a recursive delete of somewhere unexpected.
   case "$root" in
     */penguin_setup/backups) ;;
     *) warn "refusing to prune unexpected backup path: $root"; return 0 ;;

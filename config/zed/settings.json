@@ -1,4 +1,5 @@
-// Zed settings
+// Zed editor settings
+// Installed to ~/.config/zed/settings.json
 //
 // For information on how to configure Zed, see the Zed
 // documentation: https://zed.dev/docs/configuring-zed
@@ -6,12 +7,25 @@
 // To see all of Zed's default settings without changing your
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
+//
+// Managed by penguin_setup: this file is overwritten by `sync.sh pull`, so
+// anything machine-specific will be lost. This is JSONC -- comments and a
+// trailing comma are both legal here, but not in strict JSON tooling.
+//
+// Note the CLI is `zeditor` on Linux and `zed` on macOS; the fish config
+// aliases the former to the latter only where it exists.
 {
   // ssh_connections is deliberately not tracked here -- it is per-machine
   // state and would otherwise be published to a public repo and ping-pong
   // between machines on every sync. Zed writes yours back in automatically.
+
+  // "launchpad" opens the project picker rather than reopening last session.
   "restore_on_startup": "launchpad",
+  // `zed .` reuses the current window instead of spawning a new one.
   "cli_default_open_behavior": "existing_window",
+
+  // Panels all docked left so they share one column and toggle in place;
+  // the AI agent gets its own side so it can sit open beside the code.
   "project_panel": {
     "dock": "left"
   },
@@ -29,6 +43,10 @@
   "git_panel": {
     "dock": "left"
   },
+
+  // External agents available in the agent panel. "registry" means Zed
+  // resolves the command itself; each still needs its CLI installed and
+  // authenticated separately.
   "agent_servers": {
     "github-copilot-cli": {
       "type": "registry"
@@ -43,14 +61,20 @@
       "type": "registry"
     }
   },
+
+  // Opt out of both telemetry streams.
   "telemetry": {
     "diagnostics": false,
     "metrics": false
   },
+
   "vim_mode": true,
   "icon_theme": "Zed (Default)",
   "ui_font_size": 16,
   "buffer_font_size": 15,
+
+  // Pinned to dark. "Tokyo Night Dark" matches the nvim colorscheme and the
+  // fish prompt theme; the light entry only applies if mode is set to "system".
   "theme": {
     "mode": "dark",
     "light": "One Light",

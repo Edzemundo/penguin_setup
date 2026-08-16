@@ -1,33 +1,54 @@
-# See https://git-scm.com/docs/git-config
+# Global git configuration
+# Installed to ~/.config/git/config (the XDG location git reads before
+# ~/.gitconfig). Reference: https://git-scm.com/docs/git-config
+#
+# Managed by penguin_setup: this file is overwritten by `sync.sh pull`.
+# Machine-specific settings go in config.local -- see the [include] at the
+# bottom -- not here.
 
 [alias]
 	co = checkout
 	br = branch
 	ci = commit
 	st = status
+
 [init]
+	# git's own default is still "master"; every host this repo targets uses
+	# main, so make new repositories match without a flag.
 	defaultBranch = main
+
 [pull]
 	rebase = true 			 # Rebase (instead of merge) on pull
+
 [push]
 	autoSetupRemote = true   # Automatically set upstream branch on push
+
 [diff]
 	algorithm = histogram    # Clearer diffs on moved/edited lines
 	colorMoved = plain       # Highlight moved blocks in diffs
 	mnemonicPrefix = true    # More intuitive refs in diff output
+
 [commit]
 	verbose = true           # Include diff comment in commit message template
+
 [column]
 	ui = auto 			     # Output in columns when possible
+
 [branch]
 	sort = -committerdate    # Sort branches by most recent commit first
+
 [tag]
 	sort = -version:refname  # Sort version numbers as you would expect
+
 [rerere]
+	# "Reuse recorded resolution": remembers how you resolved a conflict and
+	# replays it if the same conflict reappears. Pays for itself on long-lived
+	# branches and repeated rebases.
 	enabled = true           # Record and reuse conflict resolutions
 	autoupdate = true        # Apply stored conflict resolutions automatically
 
 # Identity and credential helper live here, written by setup.sh and never
-# tracked, so this file stays the same on every machine.
+# tracked, so this file stays the same on every machine. A missing
+# config.local is not an error -- git ignores includes it cannot resolve.
 [include]
 	path = config.local

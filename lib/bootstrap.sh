@@ -1,15 +1,30 @@
 # shellcheck shell=bash
 #
-# Installers for the things that do not come from a package manager:
-# Homebrew, uv, yay, and the Xcode command line tools.
+# lib/bootstrap.sh -- installers for the things that do not come from a
+# package manager: Homebrew, uv, yay, and the Xcode command line tools.
 #
-# Each one checks whether it is already present and returns quietly if so.
+# These run before lib/packages.sh, because Homebrew is what provides most of
+# the tools that follow. Each installer checks whether its target is already
+# present and returns quietly if so, so the whole file is re-runnable.
+#
+# Everything here is fetched from the internet, so every download goes through
+# fetch_and_run (verify, then execute) rather than piping curl into a shell.
+#
+# Globals read: OS, PM, DRY_RUN, SKIP.  Entry point is bootstrap() at the end.
 
 BREW_URL='https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'
 UV_URL='https://astral.sh/uv/install.sh'
 
-# Put brew on PATH for the rest of this process if it is installed anywhere
-# we recognise. Safe to call before brew exists -- it just does nothing.
+# load_brew_env  ->  0 if brew was found and put on PATH, 1 otherwise
+#
+# Homebrew's prefix differs by platform: /opt/homebrew on Apple Silicon,
+# /usr/local on Intel Macs, /home/linuxbrew/.linuxbrew for a system-wide Linux
+# install, and ~/.linuxbrew for a single-user one. Probing all four keeps this
+# one function correct everywhere.
+#
+# Safe to call before brew exists -- it simply finds nothing and returns 1.
+# Called again after install_homebrew so the new brew is usable immediately,
+# which is what removes the previous version's re-eval hack in setup.sh.
 load_brew_env() {
   local prefix
   for prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew "$HOME/.linuxbrew"; do
@@ -24,6 +39,12 @@ load_brew_env() {
   return 1
 }
 
+# install_homebrew
+# Installs Homebrew if absent and leaves brew on PATH for the current process.
+# Fatal on failure: most of the tool list depends on it.
+#
+# NONINTERACTIVE=1 stops the installer waiting for a keypress. It calls sudo
+# itself where it needs to, which is why this works from an unprivileged user.
 install_homebrew() {
   skipped brew && { dim "skipping Homebrew"; return 0; }
 
@@ -40,6 +61,10 @@ install_homebrew() {
   ok "Homebrew installed at $(brew --prefix)"
 }
 
+# install_uv
+# uv, the Python package and project manager. Installed via its own script
+# rather than brew so the version matches upstream's release channel.
+# Non-fatal: Python tooling is peripheral to the rest of the setup.
 install_uv() {
   skipped uv && { dim "skipping uv"; return 0; }
 
@@ -93,6 +118,9 @@ ensure_xcode_clt() {
   die "Finish the Xcode command line tools installation, then run this script again."
 }
 
+# bootstrap
+# Entry point. Order matters: the Xcode tools provide the compiler Homebrew
+# needs on macOS, and Homebrew must exist before anything tries to use brew.
 bootstrap() {
   ensure_xcode_clt
   install_homebrew

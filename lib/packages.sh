@@ -1,13 +1,28 @@
 # shellcheck shell=bash
 #
-# Package installation. Every list lives in packages.conf; nothing here
-# names a package.
+# lib/packages.sh -- package installation.
+#
+# Every list lives in packages.conf; nothing in this file names a package.
+# That is the whole point of the rewrite: adding a tool means editing one
+# array, not hunting through six scripts.
 #
 # The pattern throughout: work out what is missing first, then install only
-# that. Installing an already-present package is usually harmless but slow,
-# and on pacman it triggers a full reinstall.
+# that. Installing an already-present package is usually just slow, but on
+# pacman without --needed it is a full reinstall, and it makes the output
+# useless for seeing what a run actually did.
+#
+# Failure policy: refreshing an index is allowed to fail with a warning, since
+# the packages may already be cached and a flaky mirror should not abort a
+# setup. An actual install failing is fatal -- continuing would produce a
+# half-configured machine that looks like it succeeded.
+#
+# Globals read: PM, OS, HEADLESS, DRY_RUN, DO_UPGRADE, and the packages.conf
+#               arrays. Entry point is install_packages at the bottom.
 
-# Fail early on a typo'd array name rather than silently installing nothing.
+# check_manifest
+# Verifies every array packages.conf is supposed to define actually exists.
+# Called once at startup so a typo fails immediately and by name, rather than
+# silently expanding to nothing and installing an empty list.
 check_manifest() {
   require_array BREW_PACKAGES
   require_array BREW_PACKAGES_LINUX
@@ -21,16 +36,23 @@ check_manifest() {
   require_array SYNC_EXCLUDES_GLOBAL
 }
 
-# Refresh package indexes. Soft failure: a flaky mirror should not abort the
-# whole setup when the packages we need may already be cached.
+# Refresh package indexes. This is a prerequisite for installing, not part of
+# upgrading -- skipping it leaves apt unable to locate any package at all on a
+# slim image. Gate it on its own token, not on --skip=upgrade.
+#
+# Soft failure: a flaky mirror should not abort a setup whose packages may
+# already be cached.
 update_indexes() {
-  skipped upgrade && { dim "skipping index update"; return 0; }
+  skipped index && { dim "skipping index refresh"; return 0; }
   log "Refreshing package index"
   case "$PM" in
-    apt)    run sudo apt-get update -qq            || warn "apt update failed, continuing" ;;
-    dnf)    run sudo dnf -q -y makecache           || warn "dnf makecache failed, continuing" ;;
-    pacman) run sudo pacman -Sy --noconfirm        || warn "pacman -Sy failed, continuing" ;;
-    brew)   run brew update                        || warn "brew update failed, continuing" ;;
+    apt)    run sudo apt-get update -qq      || warn "apt update failed, continuing" ;;
+    dnf)    run sudo dnf -q -y makecache     || warn "dnf makecache failed, continuing" ;;
+    pacman) run sudo pacman -Sy --noconfirm  || warn "pacman -Sy failed, continuing" ;;
+    brew)
+      skipped brew && return 0
+      run brew update || warn "brew update failed, continuing"
+      ;;
   esac
 }
 
@@ -38,7 +60,13 @@ update_indexes() {
 # Native package manager
 # ---------------------------------------------------------------------------
 
-# Print those of the given packages that are not installed.
+# _missing_native <package>...  ->  the subset that is not installed, one per line
+#
+# Each manager needs its own query, and each is chosen to be quiet and exact:
+#   apt     dpkg-query, matched against the literal "install ok installed"
+#           status, because a removed-but-not-purged package still has a record
+#   dnf     rpm -q
+#   pacman  pacman -Qi
 _missing_native() {
   local pkg
   for pkg in "$@"; do
@@ -58,6 +86,8 @@ _missing_native() {
 }
 
 # install_native <package>...
+# Installs any of the named packages that are missing, via the detected PM.
+# Fatal on failure.
 install_native() {
   [ "$#" -gt 0 ] || return 0
 
@@ -78,6 +108,10 @@ install_native() {
   esac || die "native package install failed"
 }
 
+# install_native_groups <group>...
+# dnf package groups (e.g. development-tools). A no-op on every other manager,
+# because only dnf has the concept -- apt and pacman use metapackages, which
+# go in the ordinary package arrays instead.
 install_native_groups() {
   [ "$#" -gt 0 ] || return 0
   [ "$PM" = dnf ] || return 0
@@ -91,6 +125,12 @@ install_native_groups() {
 # Homebrew
 # ---------------------------------------------------------------------------
 
+# install_brew_packages
+# Installs BREW_PACKAGES, plus BREW_PACKAGES_LINUX on Linux, then any casks.
+#
+# Homebrew is the cross-platform half of the story: the same formulae on macOS
+# and Linux means the same tool versions everywhere, which is why the native
+# lists stay minimal.
 install_brew_packages() {
   skipped brew && { dim "skipping brew packages"; return 0; }
   command -v brew >/dev/null 2>&1 || { warn "brew not on PATH, skipping brew packages"; return 0; }
@@ -123,6 +163,10 @@ install_brew_packages() {
   install_brew_casks
 }
 
+# install_brew_casks
+# GUI applications, so macOS only and never under --headless.
+# Non-fatal: a cask can fail for reasons (an existing app bundle, a Gatekeeper
+# prompt) that should not take down a whole setup run.
 install_brew_casks() {
   [ "$OS" = macos ] || return 0
   $HEADLESS && return 0
@@ -142,6 +186,11 @@ install_brew_casks() {
   run brew install --cask "${missing[@]}" || warn "cask install failed"
 }
 
+# upgrade_brew_packages
+# Opt-in behind --upgrade. The previous version ran brew upgrade on every
+# setup, which is slow and can pull unrelated software forward at an
+# inconvenient moment; installing a machine and upgrading everything on it are
+# different intentions.
 upgrade_brew_packages() {
   $DO_UPGRADE || return 0
   command -v brew >/dev/null 2>&1 || return 0
@@ -153,6 +202,10 @@ upgrade_brew_packages() {
 # Entry point
 # ---------------------------------------------------------------------------
 
+# install_packages
+# Entry point: native packages for the detected manager, then Homebrew.
+# On macOS there is no native step -- PM is brew and everything comes from the
+# Homebrew pass below.
 install_packages() {
   log "Installing packages"
 

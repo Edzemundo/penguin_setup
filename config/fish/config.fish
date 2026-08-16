@@ -1,3 +1,14 @@
+# Fish shell configuration
+# Installed to ~/.config/fish/config.fish
+# Reference: https://fishshell.com/docs/current/language.html
+#
+# Managed by penguin_setup: this file is overwritten by `sync.sh pull`.
+# Machine-local additions belong in ~/.config/fish/conf.d/*.fish, which fish
+# sources automatically and sync excludes.
+#
+# Read top to bottom this runs: distro hook, then PATH setup (every shell),
+# then the interactive block (prompts and tools, skipped by scripts).
+
 # CachyOS ships its own fish config; load it first if present.
 if test -f /usr/share/cachyos-fish-config/cachyos-config.fish
     source /usr/share/cachyos-fish-config/cachyos-config.fish
@@ -17,6 +28,8 @@ if status is-interactive
     # throws errors on every prompt for the whole time between installing a
     # machine and finishing the install -- and breaks the container tests.
 
+    # ls in long form with git status and icons. Icons need a Nerd Font in
+    # the terminal or they render as tofu.
     command -q eza && alias ls="eza --color=always --long --git --icons=always"
     command -q lazygit && alias lg="lazygit"
     command -q lazydocker && alias ld="lazydocker"

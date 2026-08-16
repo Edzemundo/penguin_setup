@@ -1,3 +1,18 @@
-# yazi.toml 
+# yazi file manager configuration
+# Installed to ~/.config/yazi/yazi.toml
+# Reference: https://yazi-rs.github.io/docs/configuration/yazi
+#
+# Managed by penguin_setup: this file is overwritten by `sync.sh pull`.
+# Only the settings that differ from yazi's defaults are listed here.
+#
+# Launch with the `y` function from config/fish/config.fish rather than `yazi`
+# directly -- it writes the final directory to a temp file and cds the shell
+# there on exit, which plain yazi cannot do.
+#
+# Note: yazi renamed the [manager] section to [mgr] in v25.x. If yazi starts
+# warning about a deprecated key, rename the section below.
+
 [manager]
+# Show dotfiles. Most of what this setup manages lives in ~/.config and other
+# hidden directories, so hiding them makes the file manager close to useless.
 show_hidden = true

@@ -1,3 +1,17 @@
+-- opencode.nvim -- drive the opencode AI agent from inside Neovim.
+--
+-- Reference: https://github.com/nickjvandyke/opencode.nvim
+-- Requires the `opencode` CLI on PATH; the plugin loads but its commands fail
+-- without it.
+--
+-- Keymap summary (all set in config() below):
+--   <C-a>    ask about the current line or selection
+--   <C-x>    pick an opencode action
+--   <C-.>    toggle the opencode window (also works from terminal mode)
+--   go / goo add a motion range / the current line to the prompt
+--   <S-C-u>  / <S-C-d>  scroll the opencode pane
+--   + / -    vim's original increment/decrement, rebound because <C-a> and
+--            <C-x> were taken over above
 return {
   "nickjvandyke/opencode.nvim",
   version = "*", -- Latest stable release
@@ -32,6 +46,8 @@ return {
       -- Your configuration, if any; goto definition on the type or field for details
     }
 
+    -- opencode edits files on disk behind Neovim's back, so buffers have to
+    -- re-read them; without autoread you keep editing a stale buffer.
     vim.o.autoread = true -- Required for `opts.events.reload`
 
     -- Recommended/example keymaps
