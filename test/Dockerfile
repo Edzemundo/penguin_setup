@@ -2,7 +2,9 @@
 #
 # One file covers every distro: the bootstrap detects the package manager
 # rather than keeping a commented-out branch per distro, which is how the
-# previous version's Fedora path quietly stopped working.
+# previous version's Fedora path quietly stopped working. The pacman branch
+# serves both archlinux:latest and cachyos/cachyos:latest, and the CachyOS
+# extras in it are guarded by availability rather than by a distro check.
 #
 #   docker build -f test/Dockerfile --build-arg BASE_IMAGE=fedora:latest .
 #
@@ -16,10 +18,25 @@ FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive
 
 # pacman 7 sandboxes itself with seccomp, which fails under qemu emulation
-# (Arch publishes x86_64 images only, so it is emulated on Apple Silicon).
+# (Arch and CachyOS publish x86_64 images only, so they are emulated on Apple
+# Silicon).
 # DisableSandbox is written into pacman.conf below, before pacman is first
 # used, so it applies to setup.sh's own pacman calls too. Test images only.
 
+# pacman-key --init/--populate with no argument populates from whichever
+# keyrings the base image carries -- Arch's, or Arch's plus CachyOS's. Without
+# it a base image that has sat on the registry for a while fails signature
+# verification on its first refresh.
+#
+# The paru / cachyos-fish-config loop is guarded by `pacman -Si`, so on
+# archlinux:latest, where neither is a repo package, it is a no-op. On CachyOS
+# both exist and a real install has them, so installing them here is what makes
+# the container exercise the paths that only CachyOS reaches: the
+# already-have-a-helper branch of install_aur_helper, and the
+# cachyos-config.fish source at the top of config/fish/config.fish. Note the
+# `if` rather than `&& ... || true` -- only the availability test is allowed to
+# be soft; a package that exists and then fails to install is a real failure.
+#
 # Note the deliberate absence of && between the update and install steps:
 # `set -e` is suppressed inside an && list, so chaining them would let a failed
 # package-database refresh pass silently and produce an image with nothing
@@ -36,9 +53,16 @@ RUN set -eux; \
         dnf clean all; \
     elif command -v pacman >/dev/null 2>&1; then \
         printf 'DisableSandbox\n' >> /etc/pacman.conf; \
+        pacman-key --init; \
+        pacman-key --populate; \
         pacman -Syu --noconfirm; \
         pacman -S --needed --noconfirm \
             sudo curl git rsync which base-devel; \
+        for p in paru cachyos-fish-config; do \
+            if pacman -Si "$p" >/dev/null 2>&1; then \
+                pacman -S --needed --noconfirm "$p"; \
+            fi; \
+        done; \
         pacman -Scc --noconfirm; \
     else \
         echo "unsupported base image: no apt/dnf/pacman" >&2; exit 1; \

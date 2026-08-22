@@ -63,11 +63,39 @@ used to leave root-owned files in `~/.config`.
 | macOS | — (Xcode CLT) | ✅ |
 | Debian / Ubuntu | apt | ✅ |
 | Fedora / RHEL | dnf | ✅ |
-| Arch / Manjaro | pacman + yay | ✅ |
+| Arch / CachyOS / Manjaro | pacman + paru or yay | ✅ |
 
 Homebrew provides the user-facing tools on every platform, so you get the same
 versions everywhere. The native package manager only supplies build
 dependencies and system integration.
+
+Distributions are recognised by the package manager they carry, not by a list
+of names, so derivatives work without being named anywhere. The distro is read
+from `/etc/os-release` and reported in the banner (`system: cachyos / pacman`)
+but nothing branches on it.
+
+#### Arch and CachyOS
+
+Three things behave differently there, and they are worth knowing before the
+first run:
+
+- **The index refresh is a full `pacman -Syu`,** not `-Sy`. Refreshing the
+  database and then installing against it is a partial upgrade, which Arch does
+  not support — and a fresh install, whose ISO packages lag the mirrors by
+  weeks, is the most likely case of all to break on it. So a setup run upgrades
+  the system, with or without `--upgrade`. `--skip=index` opts out, but it skips
+  the database refresh with it.
+- **An existing AUR helper is used as-is.** `paru` is preferred over `yay`, and
+  CachyOS ships paru already, so nothing is built. Only when neither is present
+  is yay built from the AUR — together with the `base-devel` and `git` it needs,
+  which the package step would otherwise not have installed yet.
+- **`AUR_PACKAGES` in `packages.conf` drives AUR installs.** It is empty by
+  default. `--skip=aur` turns off both the helper and the packages.
+
+A fresh CachyOS install already has most of `PACMAN_PACKAGES`, fish included;
+`--needed` means re-listing them costs nothing. CachyOS's own fish config lives
+outside `~/.config` and is sourced first by `config/fish/config.fish` when it is
+present, so its aliases and greeting still apply after a `pull`.
 
 ---
 
@@ -129,6 +157,7 @@ Open [`packages.conf`](packages.conf). It has three parts.
 BREW_PACKAGES=(atuin bat dust eza fd fzf ...)   # both platforms
 BREW_PACKAGES_LINUX=(gcc)                       # additive, Linux only
 APT_PACKAGES=(build-essential btop curl ...)
+AUR_PACKAGES=()                                 # Arch only, via paru or yay
 ```
 
 The rule, worth keeping to: **native package manager for build dependencies
@@ -169,7 +198,8 @@ cannot modify your working tree.
 ```bash
 test/run.sh debian --fast     # ~1 min, skips Homebrew
 test/run.sh debian            # full run including Homebrew
-test/run.sh all               # debian, fedora and arch
+test/run.sh cachyos --fast    # the CachyOS paths
+test/run.sh all               # debian, fedora, arch and cachyos
 test/run.sh arch --shell      # poke around by hand
 test/run.sh --lint            # shellcheck, via container
 ```
@@ -177,7 +207,14 @@ test/run.sh --lint            # shellcheck, via container
 `--fast` skips Homebrew, the AUR and uv. Homebrew-on-Linux in a container
 builds from source when there is no bottle and dominates the runtime; the fast
 path still covers manifest handling, config sync, excludes, dry-run, fish,
-fisher and idempotency.
+fisher and idempotency. Because `--fast` skips the AUR, the helper logic is
+only exercised by a **full** run: `test/run.sh cachyos` checks that a
+preinstalled paru is reused, `test/run.sh arch` that yay is built when nothing
+is there.
+
+The `cachyos` image installs `paru` and `cachyos-fish-config` from the CachyOS
+repos, so the container matches a real install; on `archlinux:latest` neither
+package exists and the same Dockerfile line does nothing.
 
 After `setup.sh` returns, `test/smoke.sh` asserts that fish installed and
 registered, the expected configs landed, desktop configs did *not* land under

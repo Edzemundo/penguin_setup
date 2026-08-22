@@ -14,6 +14,8 @@
 # Globals it sets:
 #   OS          macos|linux            (detect_system)
 #   PM          brew|apt|dnf|pacman    (detect_system)
+#   DISTRO      macos|debian|fedora|arch|cachyos|...  (detect_system)
+#               informational only -- nothing branches on it
 #   _c_*        terminal colour escapes, empty when not a tty
 #
 # Targets bash 3.2 -- that is what /bin/bash is on macOS, and it runs before
@@ -83,22 +85,42 @@ run() {
 # System detection
 # ---------------------------------------------------------------------------
 
+# _os_release_id  ->  the ID= field of /etc/os-release, or empty
+#
+# Parsed, not sourced: sourcing os-release would drag twenty unrelated
+# variables into the shell. tr strips the quotes some distros put round the
+# value; head -1 guards against a second ID= line further down the file.
+_os_release_id() {
+  [ -r /etc/os-release ] || return 0
+  sed -n 's/^ID=//p' /etc/os-release | head -1 | tr -d "\"'"
+}
+
 # detect_system
-# Sets OS and PM. Call once, early; everything else branches on these two.
+# Sets OS, PM and DISTRO. Call once, early; everything else branches on the
+# first two.
 #
 # macOS has no native package manager, so PM=brew there and the native-install
 # path is simply skipped. On Linux the first manager found wins -- order
 # matters only on systems carrying more than one, where the native one is
-# listed first.
-# shellcheck disable=SC2034  # both are read by the other lib/ files
+# listed first. Derivatives fall out of this for free: CachyOS and Manjaro are
+# recognised by the pacman they carry, not by a name in a list here.
+#
+# DISTRO is reported, never branched on. Code that needs distro-specific
+# behaviour probes for the thing it actually needs -- `command -v paru`, or the
+# cachyos-config.fish test in config/fish/config.fish -- which is what lets a
+# derivative work without this file having heard of it.
+# shellcheck disable=SC2034  # all three are read by the other lib/ files
 detect_system() {
   case "${OSTYPE:-}" in
     darwin*)
       OS=macos
       PM=brew
+      DISTRO=macos
       ;;
     *)
       OS=linux
+      DISTRO="$(_os_release_id)"
+      [ -n "$DISTRO" ] || DISTRO=linux
       if   command -v apt-get >/dev/null 2>&1; then PM=apt
       elif command -v dnf     >/dev/null 2>&1; then PM=dnf
       elif command -v pacman  >/dev/null 2>&1; then PM=pacman

@@ -14,10 +14,12 @@
 # Failure policy: refreshing an index is allowed to fail with a warning, since
 # the packages may already be cached and a flaky mirror should not abort a
 # setup. An actual install failing is fatal -- continuing would produce a
-# half-configured machine that looks like it succeeded.
+# half-configured machine that looks like it succeeded. The AUR is the one
+# exception on the install side; see install_aur.
 #
-# Globals read: PM, OS, HEADLESS, DRY_RUN, DO_UPGRADE, and the packages.conf
-#               arrays. Entry point is install_packages at the bottom.
+# Globals read: PM, OS, HEADLESS, DRY_RUN, DO_UPGRADE, AUR_HELPER, and the
+#               packages.conf arrays. Entry point is install_packages at the
+#               bottom.
 
 # check_manifest
 # Verifies every array packages.conf is supposed to define actually exists.
@@ -32,6 +34,7 @@ check_manifest() {
   require_array DNF_GROUPS
   require_array PACMAN_PACKAGES
   require_array PACMAN_DESKTOP_PACKAGES
+  require_array AUR_PACKAGES
   require_array CONFIGS
   require_array SYNC_EXCLUDES_GLOBAL
 }
@@ -42,13 +45,21 @@ check_manifest() {
 #
 # Soft failure: a flaky mirror should not abort a setup whose packages may
 # already be cached.
+#
+# pacman is the exception to "refreshing is not upgrading": -Sy followed by an
+# -S install is a partial upgrade, which Arch does not support and which a
+# fresh install -- whose ISO packages lag the mirrors by weeks -- is the most
+# likely of all to break on. So the pacman refresh is a full -Syu, and a setup
+# run on Arch or CachyOS upgrades the system whether --upgrade was given or
+# not. That is a real difference in what this step does, so it is called out in
+# the README's Arch and CachyOS notes as well as here. --skip=index opts out.
 update_indexes() {
   skipped index && { dim "skipping index refresh"; return 0; }
   log "Refreshing package index"
   case "$PM" in
     apt)    run sudo apt-get update -qq      || warn "apt update failed, continuing" ;;
     dnf)    run sudo dnf -q -y makecache     || warn "dnf makecache failed, continuing" ;;
-    pacman) run sudo pacman -Sy --noconfirm  || warn "pacman -Sy failed, continuing" ;;
+    pacman) run sudo pacman -Syu --noconfirm || warn "pacman -Syu failed, continuing" ;;
     brew)
       skipped brew && return 0
       run brew update || warn "brew update failed, continuing"
@@ -66,7 +77,9 @@ update_indexes() {
 #   apt     dpkg-query, matched against the literal "install ok installed"
 #           status, because a removed-but-not-purged package still has a record
 #   dnf     rpm -q
-#   pacman  pacman -Qi
+#   pacman  pacman -Qi, which answers for AUR packages too -- once built they
+#           are ordinary entries in the local database, so install_aur reuses
+#           this rather than asking the helper
 _missing_native() {
   local pkg
   for pkg in "$@"; do
@@ -119,6 +132,44 @@ install_native_groups() {
   for group in "$@"; do
     run sudo dnf group install -y -q "$group" || warn "group install failed: $group"
   done
+}
+
+# install_aur <package>...
+# Builds AUR packages with whichever helper install_aur_helper found. A no-op
+# off pacman, and a no-op with a warning-free skip when there is no helper --
+# --skip=aur, or a build that did not work out.
+#
+# Non-fatal where install_native is fatal: an AUR PKGBUILD is third-party
+# source built on this machine and can fail for reasons entirely upstream of
+# this repo. A broken AUR package should not take down a whole setup the way a
+# missing build dependency should.
+install_aur() {
+  [ "$#" -gt 0 ] || return 0
+  [ "$PM" = pacman ] || return 0
+  if [ -z "${AUR_HELPER:-}" ]; then
+    dim "no AUR helper, skipping ${#} AUR package(s)"
+    return 0
+  fi
+
+  local missing
+  missing="$(_missing_native "$@")"
+  if [ -z "$missing" ]; then
+    dim "all ${#} AUR packages already installed"
+    return 0
+  fi
+
+  # paru and yay share pacman's -S interface, so one command line covers both.
+  local -a args
+  args=( -S --needed --noconfirm )
+  # paru additionally opens a PKGBUILD diff for every new package, which
+  # --noconfirm does not suppress; unattended, that waits on a pager forever.
+  if [ "$AUR_HELPER" = paru ]; then
+    args=( "${args[@]}" --skipreview )
+  fi
+
+  info "installing from AUR: $(echo "$missing" | tr '\n' ' ')"
+  # shellcheck disable=SC2086  # word splitting is intended here
+  run "$AUR_HELPER" "${args[@]}" $missing || warn "AUR install failed, continuing"
 }
 
 # ---------------------------------------------------------------------------
@@ -220,6 +271,7 @@ install_packages() {
     pacman)
       install_native ${PACMAN_PACKAGES[@]+"${PACMAN_PACKAGES[@]}"}
       $HEADLESS || install_native ${PACMAN_DESKTOP_PACKAGES[@]+"${PACMAN_DESKTOP_PACKAGES[@]}"}
+      install_aur ${AUR_PACKAGES[@]+"${AUR_PACKAGES[@]}"}
       ;;
     brew)
       : # macOS has no native manager; everything comes from brew below

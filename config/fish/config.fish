@@ -15,8 +15,10 @@ if test -f /usr/share/cachyos-fish-config/cachyos-config.fish
 end
 
 # Homebrew. One config for every platform, so detect the prefix at runtime
-# rather than shipping a per-OS file.
-for brew_prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew
+# rather than shipping a per-OS file. Same four prefixes load_brew_env probes
+# in lib/bootstrap.sh: Apple Silicon, Intel Mac, system-wide Linux, single-user
+# Linux.
+for brew_prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew $HOME/.linuxbrew
     if test -x $brew_prefix/bin/brew
         eval ($brew_prefix/bin/brew shellenv)
         break

@@ -3,7 +3,7 @@
 # Run the setup in a container.
 #
 # Usage:
-#   test/run.sh <debian|fedora|arch|all> [options]
+#   test/run.sh <debian|fedora|arch|cachyos|all> [options]
 #
 # Options:
 #   --fast       skip Homebrew, the AUR and uv (about a minute instead of ten)
@@ -46,7 +46,7 @@ usage() { sed -n '3,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    debian|fedora|arch|all) TARGET="$1" ;;
+    debian|fedora|arch|cachyos|all) TARGET="$1" ;;
     --fast)   FAST=true ;;
     --shell)  SHELL_MODE=true ;;
     --lint)   LINT=true ;;
@@ -68,19 +68,23 @@ docker info >/dev/null 2>&1 || {
 
 image_for() {
   case "$1" in
-    debian) printf 'debian:stable-slim' ;;
-    fedora) printf 'fedora:latest' ;;
-    arch)   printf 'archlinux:latest' ;;
+    debian)  printf 'debian:stable-slim' ;;
+    fedora)  printf 'fedora:latest' ;;
+    arch)    printf 'archlinux:latest' ;;
+    cachyos) printf 'cachyos/cachyos:latest' ;;
   esac
 }
 
-# Arch publishes x86_64 images only, so on an arm64 host (Apple Silicon) it
-# has to run under emulation. Everything else uses the native architecture.
-# Emulated runs work but are several times slower.
+# Arch and CachyOS publish x86_64 images only, so on an arm64 host (Apple
+# Silicon) they have to run under emulation. Everything else uses the native
+# architecture. Emulated runs work but are several times slower.
+#
+# Every path returns 0: this is called as platform="$(platform_for ...)" under
+# set -e, where a non-zero status would abort the run rather than mean "native".
 platform_for() {
-  if [ "$1" = arch ] && [ "$(uname -m)" != "x86_64" ]; then
-    printf 'linux/amd64'
-  fi
+  case "$1" in
+    arch|cachyos) [ "$(uname -m)" = x86_64 ] || printf 'linux/amd64' ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
@@ -175,7 +179,7 @@ main() {
   fi
 
   local distro failed=''
-  for distro in debian fedora arch; do
+  for distro in debian fedora arch cachyos; do
     echo
     echo "############ $distro ############"
     if run_one "$distro"; then

@@ -21,7 +21,7 @@
 #   packages.conf      what to install and sync -- the only file naming a
 #                      package or a config directory
 #   lib/common.sh      output, system detection, mutating primitives
-#   lib/bootstrap.sh   Homebrew, uv, yay, Xcode CLT
+#   lib/bootstrap.sh   Homebrew, uv, AUR helper, Xcode CLT
 #   lib/packages.sh    package installation per manager
 #   lib/config.sh      config directory sync (shared with sync.sh)
 #   lib/shell.sh       fish, fisher, git config.local
@@ -117,7 +117,7 @@ main() {
 
   printf '\n'
   log "penguin_setup"
-  info "system:   $OS / $PM"
+  info "system:   $DISTRO / $PM"
   info "profile:  $profile"
   [ -n "$SKIP" ] && info "skipping: $SKIP"
   $DRY_RUN && info "mode:     dry run, nothing will change"

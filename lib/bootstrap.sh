@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 #
 # lib/bootstrap.sh -- installers for the things that do not come from a
-# package manager: Homebrew, uv, yay, and the Xcode command line tools.
+# package manager: Homebrew, uv, an AUR helper, and the Xcode command line
+# tools.
 #
 # These run before lib/packages.sh, because Homebrew is what provides most of
 # the tools that follow. Each installer checks whether its target is already
@@ -11,9 +12,15 @@
 # fetch_and_run (verify, then execute) rather than piping curl into a shell.
 #
 # Globals read: OS, PM, DRY_RUN, SKIP.  Entry point is bootstrap() at the end.
+# Globals written: AUR_HELPER.
 
 BREW_URL='https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'
 UV_URL='https://astral.sh/uv/install.sh'
+
+# The AUR helper install_aur() in lib/packages.sh drives: paru, yay, or empty
+# when there is none -- off Arch, or under --skip=aur, or after a failed build.
+# shellcheck disable=SC2034  # read by lib/packages.sh
+AUR_HELPER=''
 
 # load_brew_env  ->  0 if brew was found and put on PATH, 1 otherwise
 #
@@ -77,22 +84,49 @@ install_uv() {
   fetch_and_run "$UV_URL" sh || warn "uv install failed, continuing"
 }
 
-# Arch only. makepkg refuses to run as root, which is one more reason the
-# whole script runs unprivileged.
-install_yay() {
+# install_aur_helper
+# Arch and its derivatives only. Ensures an AUR helper exists and names it in
+# AUR_HELPER, which install_aur() in lib/packages.sh then drives.
+#
+# paru first, then yay: whichever is already on the machine wins. CachyOS ships
+# paru preinstalled, and building yay next to it would leave two helpers
+# managing the same packages. Only when neither exists is one built, and yay is
+# the one built -- an arbitrary choice, but a consistent one, and an existing
+# paru always beats it.
+#
+# Non-fatal apart from a mktemp that will not work at all. The AUR is the
+# optional half of an Arch setup, and a machine without a helper is still a
+# working machine.
+#
+# makepkg refuses to run as root, which is one more reason the whole script
+# runs unprivileged.
+# shellcheck disable=SC2034  # AUR_HELPER is read by lib/packages.sh
+install_aur_helper() {
   [ "$PM" = pacman ] || return 0
-  skipped aur && { dim "skipping yay"; return 0; }
+  skipped aur && { dim "skipping AUR helper"; return 0; }
 
-  if command -v yay >/dev/null 2>&1; then
-    dim "yay already installed"
-    return 0
-  fi
+  local helper
+  for helper in paru yay; do
+    if command -v "$helper" >/dev/null 2>&1; then
+      AUR_HELPER="$helper"
+      dim "$helper already installed"
+      return 0
+    fi
+  done
 
   log "Installing yay"
   if $DRY_RUN; then
+    AUR_HELPER=yay
     dim "[dry-run] build and install yay from the AUR"
     return 0
   fi
+
+  # makepkg needs base-devel and git, and bootstrap runs before the package
+  # step that would otherwise supply them. A fresh CachyOS has both already; a
+  # minimal Arch has neither, which is where the previous version silently gave
+  # up and left the machine with no helper at all.
+  sudo pacman -S --needed --noconfirm base-devel git \
+    || { warn "could not install base-devel, skipping AUR helper"; return 0; }
 
   local build
   build="$(mktemp -d)" || die "mktemp -d failed"
@@ -100,8 +134,18 @@ install_yay() {
   git clone --depth 1 https://aur.archlinux.org/yay.git "$build/yay" \
     || { rm -rf "$build"; warn "yay clone failed, continuing"; return 0; }
   ( cd "$build/yay" && makepkg -si --noconfirm ) \
-    || warn "yay build failed, continuing"
+    || { rm -rf "$build"; warn "yay build failed, continuing"; return 0; }
   rm -rf "$build"
+
+  # Deliberately not `command -v yay && AUR_HELPER=yay`. As the last statement
+  # of a function, that form returns 1 when the test fails, which set -e in the
+  # caller reads as bootstrap() itself having failed.
+  if command -v yay >/dev/null 2>&1; then
+    AUR_HELPER=yay
+    ok "yay installed"
+  else
+    warn "yay built but is not on PATH"
+  fi
 }
 
 # macOS only. Cannot be automated past kicking off the GUI installer.
@@ -124,6 +168,6 @@ ensure_xcode_clt() {
 bootstrap() {
   ensure_xcode_clt
   install_homebrew
-  install_yay
+  install_aur_helper
   install_uv
 }
